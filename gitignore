@@ -1,0 +1,19 @@
+# Nunca subir datos de pacientes ni archivos de trabajo
+*.xlsx
+*.xls
+*.xlsm
+*.csv
+*.pdf
+*.docx
+*.png
+*.jpg
+
+# Carpetas de trabajo del proyecto completo
+_preview/
+shots/
+muestras/
+media-output/
+comparativa/
+work/
+scripts/
+turnos/

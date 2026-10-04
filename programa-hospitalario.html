@@ -1,0 +1,1668 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Programa Hospitalario · TQ Turnos Quirúrgicos y N.O. Notas Operatorias</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+:root{
+  --pink:#f47da3; --pink-deep:#c2185b;
+  --purple:#8662a9; --purple-deep:#5b3f7d;
+  --ink:#241a2e; --ink-soft:#574a63;
+  --line:#e9e2f0; --bg:#faf7fd; --card:#ffffff;
+  --ok:#0b5132; --ok-bg:#d7f5e3;
+  --warn:#7c2d12; --warn-bg:#ffe6d5;
+  --info:#1e3a8a; --info-bg:#dbeafe;
+  --danger:#991b1b; --danger-bg:#fee2e2;
+  --radius:16px;
+  --shadow:0 10px 30px rgba(70,40,90,.10);
+  --grad:linear-gradient(135deg,#c2185b,#5b3f7d);
+  --grad-soft:linear-gradient(135deg,#fde7f0,#ece3f7);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:'Quicksand',system-ui,-apple-system,'Segoe UI',sans-serif;
+  background:var(--bg); color:var(--ink); font-size:15px; line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+}
+body::before{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background:
+    radial-gradient(900px 420px at 8% -10%, rgba(244,125,163,.20), transparent 60%),
+    radial-gradient(760px 420px at 100% 0%, rgba(134,98,169,.20), transparent 62%);
+}
+.wrap{position:relative; z-index:1; max-width:1500px; margin:0 auto; padding:0 18px 60px}
+
+/* ============ ENCABEZADO ============ */
+header.app{
+  position:relative; overflow:hidden; border-radius:0 0 var(--radius) var(--radius);
+  background:var(--grad); color:#fff; padding:22px 24px 18px; margin:0 -18px 18px;
+  box-shadow:var(--shadow);
+}
+header.app::after{
+  content:""; position:absolute; top:0; left:-40%; width:40%; height:100%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.28),transparent);
+  animation:shimmer 6.5s infinite ease-in-out;
+}
+@keyframes shimmer{0%{left:-45%}55%{left:120%}100%{left:120%}}
+.brand{display:flex; align-items:center; gap:14px; flex-wrap:wrap}
+.logo{
+  width:48px;height:48px;border-radius:14px;flex:0 0 auto; display:grid;place-items:center;
+  background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.35);
+  box-shadow:0 6px 18px rgba(0,0,0,.18);
+}
+.logo svg{animation:pulse 3.2s infinite ease-in-out}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:.95}50%{transform:scale(1.08);opacity:1}}
+.brand h1{font-size:21px; margin:0; font-weight:700; letter-spacing:.2px}
+.brand p{margin:2px 0 0; font-size:13px; color:rgba(255,255,255,.92)}
+.hdr-actions{margin-left:auto; display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+.chip{
+  display:inline-flex; align-items:center; gap:7px; padding:6px 11px; border-radius:999px;
+  background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.34);
+  font-size:12.5px; font-weight:600; color:#fff; cursor:pointer;
+}
+.chip .dot{width:9px;height:9px;border-radius:50%;background:#9dffc9;box-shadow:0 0 0 4px rgba(157,255,201,.25)}
+.chip .dot.off{background:#ffd39d;box-shadow:0 0 0 4px rgba(255,211,157,.25)}
+.chip:hover{background:rgba(255,255,255,.28)}
+
+/* ============ PESTAÑAS ============ */
+nav.tabs{display:flex; gap:10px; flex-wrap:wrap; margin:0 0 16px}
+nav.tabs button{
+  appearance:none; border:1px solid var(--line); background:#fff; color:var(--ink-soft);
+  padding:11px 16px; border-radius:14px; font:inherit; font-weight:700; font-size:13.5px;
+  cursor:pointer; display:inline-flex; align-items:center; gap:9px; transition:.18s;
+  box-shadow:0 2px 8px rgba(90,60,120,.06);
+}
+nav.tabs button .tag{
+  font-size:11px; font-weight:700; padding:2px 7px; border-radius:7px;
+  background:var(--grad-soft); color:var(--purple-deep); border:1px solid #e3d6f0;
+}
+nav.tabs button:hover{transform:translateY(-1px); border-color:#d9c9e8}
+nav.tabs button.active{background:var(--grad); color:#fff; border-color:transparent; box-shadow:0 8px 22px rgba(91,63,125,.32)}
+nav.tabs button.active .tag{background:rgba(255,255,255,.22); color:#fff; border-color:rgba(255,255,255,.4)}
+
+/* ============ PANELES ============ */
+section.panel{display:none}
+section.panel.visible{display:block; animation:fade .25s ease}
+@keyframes fade{from{opacity:0; transform:translateY(6px)}to{opacity:1; transform:none}}
+.card{
+  background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+  box-shadow:var(--shadow); padding:16px; margin-bottom:16px;
+}
+.card-title{
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 4px;
+  font-size:16px; font-weight:700;
+}
+.card-title .badge-item{
+  font-size:11.5px; font-weight:700; letter-spacing:.4px; padding:4px 10px; border-radius:9px;
+  background:var(--grad); color:#fff;
+}
+.card-sub{color:var(--ink-soft); font-size:13px; margin:0 0 12px}
+
+/* toolbar */
+.toolbar{display:flex; gap:9px; flex-wrap:wrap; align-items:center; margin-bottom:12px}
+.btn{
+  appearance:none; border:1px solid var(--line); background:#fff; color:var(--ink);
+  padding:10px 14px; border-radius:12px; font:inherit; font-weight:700; font-size:13px;
+  cursor:pointer; display:inline-flex; align-items:center; gap:8px; transition:.16s;
+  box-shadow:0 2px 8px rgba(90,60,120,.06);
+}
+.btn:hover{transform:translateY(-1px); border-color:#d9c9e8; background:#fdfbff}
+.btn:active{transform:translateY(0)}
+.btn.primary{background:var(--grad); color:#fff; border-color:transparent; position:relative; overflow:hidden}
+.btn.primary:hover{box-shadow:0 10px 24px rgba(91,63,125,.34)}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--danger); border-color:#f3c9c9; background:#fff}
+.btn.danger:hover{background:var(--danger-bg)}
+.btn[disabled]{opacity:.5; cursor:not-allowed; transform:none}
+.btn .ripple{position:absolute; border-radius:50%; transform:scale(0); animation:rip .6s ease-out; background:rgba(255,255,255,.55)}
+@keyframes rip{to{transform:scale(3.2); opacity:0}}
+.field-inline{display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-soft); font-weight:600}
+input,select,textarea{
+  font:inherit; color:var(--ink); background:#fff; border:1px solid var(--line);
+  border-radius:11px; padding:9px 11px; outline:none; transition:.16s; width:100%;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--purple); box-shadow:0 0 0 4px rgba(134,98,169,.16)}
+textarea{min-height:74px; resize:vertical}
+.search{min-width:210px}
+.spacer{flex:1 1 auto}
+
+/* stats */
+.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:11px; margin-bottom:14px}
+.stat{
+  background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px 13px;
+  box-shadow:0 4px 14px rgba(90,60,120,.06); position:relative; overflow:hidden;
+}
+.stat::before{content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--grad)}
+.stat b{display:block; font-size:22px; font-weight:700; line-height:1.15}
+.stat span{font-size:12px; color:var(--ink-soft); font-weight:600; text-transform:uppercase; letter-spacing:.4px}
+
+/* ============ TABLA ============ */
+.table-wrap{border:1px solid var(--line); border-radius:14px; overflow:auto; max-height:66vh; background:#fff}
+table{border-collapse:separate; border-spacing:0; width:100%; font-size:13px}
+thead th{
+  position:sticky; top:0; z-index:3; background:#5b3f7d; color:#fff; text-align:left;
+  padding:10px 11px; font-weight:700; font-size:11.5px; letter-spacing:.4px; white-space:nowrap;
+  border-bottom:1px solid #4a3367;
+}
+thead th .col-letter{display:block; font-size:9.5px; font-weight:600; opacity:.75; letter-spacing:.6px}
+tbody td{padding:9px 11px; border-bottom:1px solid #f1ecf7; vertical-align:top; color:var(--ink)}
+tbody tr:nth-child(even){background:#fcfaff}
+tbody tr:hover{background:#f7f1fd}
+tbody tr.pending{box-shadow:inset 3px 0 0 #e0a53c}
+td.actions{white-space:nowrap}
+td.actions button{all:unset; cursor:pointer; padding:4px 8px; border-radius:8px; font-size:12px; font-weight:700; color:var(--purple-deep); border:1px solid transparent}
+td.actions button:hover{background:#f0e8fa; border-color:#e0d3f0}
+td.actions button.del{color:var(--danger)}
+td.actions button.del:hover{background:var(--danger-bg); border-color:#f3c9c9}
+.pill{display:inline-block; padding:2px 9px; border-radius:999px; font-size:11px; font-weight:700; white-space:nowrap; border:1px solid transparent}
+.pill.ok{background:var(--ok-bg); color:var(--ok); border-color:#b7e6cd}
+.pill.warn{background:var(--warn-bg); color:var(--warn); border-color:#fbd5ba}
+.pill.info{background:var(--info-bg); color:var(--info); border-color:#c3d8fb}
+.pill.muted{background:#efeaf6; color:#4a3d59; border-color:#e0d6ee}
+/* desplegable dentro de la tabla (columna AUTORIZADOR) */
+select.cell-sel{
+  width:100%; min-width:145px; padding:5px 7px; font-size:12px; font-weight:600;
+  border:1px solid #ddd0ec; border-radius:9px; background:linear-gradient(#fff,#faf7fd); color:var(--ink);
+  cursor:pointer;
+}
+select.cell-sel:hover{border-color:var(--purple)}
+select.cell-sel:focus{border-color:var(--purple); box-shadow:0 0 0 3px rgba(134,98,169,.18)}
+tbody tr.pending select.cell-sel{border-color:#e0c48a}
+/* color según el ESTADO del turno (texto oscuro sobre fondo claro: contraste AA) */
+select.cell-sel.sel-ok{background:#eafaf0; border-color:#a9dfc1; color:#0b5132}
+select.cell-sel.sel-pend{background:#fff6e9; border-color:#e8c795; color:#7c2d12}
+select.cell-sel.sel-no{background:#fdecec; border-color:#efb4b4; color:#991b1b}
+select.cell-sel.sel-info{background:#f1ecfb; border-color:#cfbdec; color:#4c2f7a}
+td.sel-cell{padding:6px 9px}
+.empty{padding:34px 16px; text-align:center; color:var(--ink-soft)}
+.empty b{display:block; font-size:15px; color:var(--ink); margin-bottom:4px}
+.row-info{font-size:12px; color:var(--ink-soft); margin-top:8px; display:flex; gap:14px; flex-wrap:wrap; align-items:center}
+
+/* ============ MODAL ============ */
+.overlay{
+  position:fixed; inset:0; background:rgba(36,26,46,.55); backdrop-filter:blur(3px);
+  display:none; align-items:flex-start; justify-content:center; padding:26px 14px; z-index:60; overflow:auto;
+}
+.overlay.open{display:flex}
+.modal{
+  background:#fff; border-radius:18px; width:min(980px,100%); box-shadow:0 30px 70px rgba(30,15,45,.4);
+  overflow:hidden; animation:pop .22s ease;
+}
+@keyframes pop{from{transform:translateY(14px) scale(.985); opacity:0}to{transform:none; opacity:1}}
+.modal header{
+  background:var(--grad); color:#fff; padding:14px 18px; display:flex; align-items:center; gap:10px;
+}
+.modal header h3{margin:0; font-size:16px; font-weight:700}
+.modal header button{all:unset; margin-left:auto; cursor:pointer; font-size:20px; line-height:1; padding:4px 9px; border-radius:10px}
+.modal header button:hover{background:rgba(255,255,255,.2)}
+.modal .body{padding:16px 18px; max-height:70vh; overflow:auto}
+.grid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px}
+.grid .full{grid-column:1/-1}
+.grid .span2{grid-column:span 2}
+label.lab{display:block; font-size:11.5px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.5px; margin-bottom:5px}
+label.lab .req{color:var(--pink-deep)}
+.modal footer{padding:13px 18px; border-top:1px solid var(--line); display:flex; gap:9px; justify-content:flex-end; flex-wrap:wrap; background:#fdfbff}
+.hint{font-size:12px; color:var(--ink-soft)}
+.err{color:var(--danger); font-size:12px; font-weight:700; margin-top:5px}
+input.bad,select.bad,textarea.bad{border-color:#e08585; box-shadow:0 0 0 4px rgba(224,133,133,.16)}
+
+/* ============ TOAST ============ */
+#toasts{position:fixed; right:16px; bottom:16px; z-index:90; display:flex; flex-direction:column; gap:9px}
+.toast{
+  background:#fff; border:1px solid var(--line); border-left:5px solid var(--purple);
+  border-radius:12px; padding:11px 14px; box-shadow:0 12px 30px rgba(60,35,85,.22);
+  font-size:13px; font-weight:600; max-width:340px; animation:slide .25s ease;
+}
+.toast.ok{border-left-color:#128a55}
+.toast.bad{border-left-color:#c22b2b}
+.toast.warn{border-left-color:#d98a1f}
+@keyframes slide{from{transform:translateX(20px); opacity:0}to{transform:none; opacity:1}}
+
+/* ============ PREVIEW IMPORTACIÓN ============ */
+.preview{border:1px solid var(--line); border-radius:12px; overflow:auto; max-height:260px; margin-top:12px}
+.preview table{font-size:12px}
+.preview thead th{background:#6b4d8c}
+.mapping{display:flex; flex-direction:column; gap:6px; margin-top:12px}
+.mapping-row{display:grid; grid-template-columns:1.1fr 1fr; gap:10px; align-items:center; font-size:12.5px}
+.mapping-row .src{font-weight:700}
+.mapping-row select{font-size:12.5px; padding:7px 9px}
+
+/* ============ CONFIG ============ */
+.kv{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px}
+pre.code{
+  background:#241a2e; color:#f3ecfa; border-radius:12px; padding:13px 14px; overflow:auto;
+  font-size:12px; line-height:1.5; max-height:270px; margin:10px 0 0;
+}
+.switch{display:inline-flex; align-items:center; gap:9px; font-size:13px; font-weight:700; color:var(--ink-soft)}
+.switch input{width:auto; accent-color:var(--purple-deep)}
+
+/* ============ ACCESO ============ */
+#gate{
+  position:fixed; inset:0; z-index:120; background:linear-gradient(150deg,#7a2b58,#4a3266);
+  display:none; align-items:center; justify-content:center; padding:18px;
+}
+#gate.open{display:flex}
+.gate-card{background:#fff; border-radius:20px; padding:26px; width:min(420px,100%); box-shadow:0 30px 70px rgba(0,0,0,.4)}
+.gate-card h2{margin:0 0 4px; font-size:19px}
+.gate-card p{margin:0 0 16px; font-size:13px; color:var(--ink-soft)}
+
+/* ============ RESPONSIVE ============ */
+@media (max-width:980px){
+  .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kv{grid-template-columns:1fr}
+}
+@media (max-width:760px){
+  .wrap{padding:0 11px 50px}
+  header.app{margin:0 -11px 14px; padding:18px 15px 15px}
+  .brand h1{font-size:17px}
+  .hdr-actions{margin-left:0; width:100%}
+  .grid{grid-template-columns:1fr}
+  .grid .span2{grid-column:auto}
+  .search{min-width:100%}
+  .toolbar .btn{flex:1 1 auto; justify-content:center}
+  /* tabla -> tarjetas */
+  .table-wrap{max-height:none; border:0; overflow:visible}
+  .table-wrap table thead{display:none}
+  .table-wrap tbody tr{
+    display:block; border:1px solid var(--line); border-radius:14px; margin-bottom:11px;
+    background:#fff !important; box-shadow:0 4px 14px rgba(90,60,120,.07); padding:6px 4px;
+  }
+  .table-wrap tbody td{
+    display:flex; gap:10px; justify-content:space-between; align-items:flex-start;
+    border-bottom:1px dashed #f0eaf7; padding:7px 10px; text-align:right;
+  }
+  .table-wrap tbody td:last-child{border-bottom:0}
+  .table-wrap tbody td::before{
+    content:attr(data-label); font-size:10.5px; font-weight:700; color:var(--ink-soft);
+    text-transform:uppercase; letter-spacing:.4px; text-align:left; flex:0 0 42%;
+  }
+  .table-wrap tbody td.sel-cell{flex-wrap:wrap}
+  .table-wrap tbody td.sel-cell::before{flex:0 0 42%}
+  .table-wrap tbody td.sel-cell select.cell-sel{flex:1 1 52%; min-width:0; max-width:56%}
+  .stat b{font-size:19px}
+}
+</style>
+</head>
+<body>
+
+<header class="app">
+  <div class="brand">
+    <div class="logo">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round">
+        <path d="M12 3v18M3 12h18" />
+      </svg>
+    </div>
+    <div>
+      <h1>Programa Hospitalario</h1>
+      <p>TQ · Turnos Quirúrgicos &nbsp;|&nbsp; N.O. · Notas Operatorias</p>
+    </div>
+    <div class="hdr-actions">
+      <button class="chip" id="chip-status" title="Estado del almacenamiento">
+        <span class="dot off" id="status-dot"></span><span id="status-text">Local (navegador)</span>
+      </button>
+      <button class="chip" id="btn-sync" title="Sincronizar con Supabase">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/></svg>
+        Sincronizar
+      </button>
+      <button class="chip" id="btn-config">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6h.1A2 2 0 1 1 13 4.6V5a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+        Configuración
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <nav class="tabs">
+    <button data-panel="tq" class="active"><span class="tag">TQ</span> Turnos Quirúrgicos</button>
+    <button data-panel="no"><span class="tag">N.O.</span> Notas Operatorias</button>
+    <button data-panel="listas"><span class="tag">L</span> Listas</button>
+    <button data-panel="config"><span class="tag">⚙</span> Configuración</button>
+  </nav>
+
+  <!-- ================= TQ ================= -->
+  <section class="panel visible" id="panel-tq">
+    <div class="card">
+      <h2 class="card-title"><span class="badge-item">TQ</span> TURNOS QUIRÚRGICO</h2>
+      <p class="card-sub">Sube tu archivo Excel/CSV (hoja <b>TQ</b>) o captura cada turno quirúrgico. Los encabezados se conservan tal cual tu base: FECHA, HORA 24 H, DOCUMENTO, NOM_PACIENTE, PROCEDIMIENTO, CODIGO, EPS, INGRESO, TIPO_INGR, CIE10, AUTORIZACION, N° DE AUTORIZACION, OBSERVACION, AUTORIZADOR.</p>
+      <div class="stats" id="stats-tq"></div>
+      <div class="toolbar" id="tool-tq"></div>
+      <div class="table-wrap"><table id="table-tq"><thead id="head-tq"></thead><tbody id="body-tq"></tbody></table></div>
+      <div class="row-info" id="info-tq"></div>
+    </div>
+  </section>
+
+  <!-- ================= N.O. ================= -->
+  <section class="panel" id="panel-no">
+    <div class="card">
+      <h2 class="card-title"><span class="badge-item">N.O.</span> NOTAS OPERATORIAS</h2>
+      <p class="card-sub">Sube tu archivo Excel/CSV (hoja <b>N.O.</b>) o captura cada nota operatoria. Encabezados: FECHA, HORA 24 H, FOLIO DGH, N° ID DE PACIENTE, EPS, CUPS, CUPS_DESCRIPCION, PACIENTE, SERVICIO ACTUAL, CAMA, ESPECIALIDAD, PRIORIDAD, AC_EVENTO, AUTORIZADOR, OBSERVACION.</p>
+      <div class="stats" id="stats-no"></div>
+      <div class="toolbar" id="tool-no"></div>
+      <div class="table-wrap"><table id="table-no"><thead id="head-no"></thead><tbody id="body-no"></tbody></table></div>
+      <div class="row-info" id="info-no"></div>
+    </div>
+  </section>
+
+  <!-- ================= LISTAS ================= -->
+  <section class="panel" id="panel-listas">
+    <div class="card">
+      <h2 class="card-title"><span class="badge-item">L</span> LISTAS (catálogos)</h2>
+      <p class="card-sub">Estas listas alimentan las sugerencias de los formularios (EPS, autorizadores, servicios, especialidades, etc.). Escribe <b>un valor por línea</b>. También se incluyen en el Excel exportado, en la hoja <b>Listas</b>.</p>
+      <div class="grid" style="grid-template-columns:260px 1fr">
+        <div>
+          <label class="lab">Lista</label>
+          <select id="cat-select"></select>
+          <p class="hint" id="cat-hint" style="margin-top:9px">Selecciona una lista para editarla.</p>
+        </div>
+        <div>
+          <label class="lab">Valores (uno por línea)</label>
+          <textarea id="cat-values" rows="12" placeholder="Escribe un valor por línea..."></textarea>
+        </div>
+      </div>
+      <div class="toolbar" style="margin-top:12px">
+        <button class="btn primary" id="cat-save">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg> Guardar lista
+        </button>
+        <button class="btn ghost" id="cat-reload">Recargar</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CONFIG ================= -->
+  <section class="panel" id="panel-config">
+    <div class="card">
+      <h2 class="card-title"><span class="badge-item">⚙</span> CONFIGURACIÓN</h2>
+      <p class="card-sub">Proyecto conectado: <b id="cfg-proyecto">—</b>. Pega aquí la URL y la anon key del proyecto que quieras usar (por ejemplo, <b>Consolidado de Estancias</b>). Los datos se guardan siempre en el navegador (respaldo local) y se sincronizan con ese proyecto.</p>
+      <p class="hint" id="cfg-note" style="margin:-4px 0 12px">Comprobando tablas…</p>
+      <div class="kv">
+        <div>
+          <label class="lab">Supabase · URL del proyecto</label>
+          <input id="cfg-url" placeholder="https://xxxxxxxxxxxx.supabase.co" autocomplete="off" />
+        </div>
+        <div>
+          <label class="lab">Supabase · anon public key</label>
+          <input id="cfg-key" placeholder="eyJhbGciOi..." autocomplete="off" />
+        </div>
+      </div>
+      <div class="toolbar" style="margin-top:12px">
+        <button class="btn primary" id="cfg-save">Guardar configuración</button>
+        <button class="btn" id="cfg-test">Probar conexión</button>
+        <button class="btn" id="cfg-turnos">Usar el proyecto de turnos</button>
+        <button class="btn" id="cfg-sql">Ver SQL de las tablas</button>
+        <button class="btn danger" id="cfg-wipe">Borrar datos locales</button>
+      </div>
+      <div id="cfg-sql-box" style="display:none">
+        <pre class="code" id="cfg-sql-pre"></pre>
+        <div class="toolbar" style="margin-top:10px">
+          <button class="btn" id="cfg-sql-copy">Copiar SQL</button>
+          <button class="btn" id="cfg-sql-dl">Descargar .sql</button>
+          <span class="hint">Ejecuta este script una vez en Supabase → SQL Editor.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Acceso al programa</h2>
+      <p class="card-sub">Opcional. Si lo activas, el programa pedirá credenciales al abrirse. Con Supabase configurado usa el inicio de sesión de Supabase (correo + contraseña); sin Supabase usa una clave local guardada cifrada en este navegador.</p>
+      <div class="toolbar">
+        <label class="switch"><input type="checkbox" id="gate-on" /> Pedir credenciales al abrir</label>
+      </div>
+      <div class="kv">
+        <div>
+          <label class="lab">Correo (solo si usas Supabase Auth)</label>
+          <input id="gate-email" placeholder="usuario@hospital.co" autocomplete="off" />
+        </div>
+        <div>
+          <label class="lab">Clave local (si no usas Supabase)</label>
+          <input id="gate-pass" type="password" placeholder="Nueva clave local" autocomplete="new-password" />
+        </div>
+      </div>
+      <div class="toolbar" style="margin-top:12px">
+        <button class="btn primary" id="gate-save">Guardar acceso</button>
+        <span class="hint" id="gate-state"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Exportar / respaldar</h2>
+      <p class="card-sub">Genera un libro Excel con las hojas <b>TQ</b>, <b>N.O.</b> y <b>Listas</b> con los mismos encabezados de tu base.</p>
+      <div class="toolbar">
+        <button class="btn primary" id="exp-xlsx">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16"/></svg> Exportar libro Excel
+        </button>
+        <button class="btn" id="exp-tq">Exportar TQ (CSV)</button>
+        <button class="btn" id="exp-no">Exportar N.O. (CSV)</button>
+        <button class="btn" id="exp-tpl">Descargar plantilla vacía</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ============ MODAL FORMULARIO ============ -->
+<div class="overlay" id="modal-form">
+  <div class="modal">
+    <header>
+      <h3 id="form-title">Registro</h3>
+      <button data-close="modal-form" title="Cerrar">×</button>
+    </header>
+    <div class="body">
+      <div class="grid" id="form-grid"></div>
+      <div class="err" id="form-err" style="display:none"></div>
+    </div>
+    <footer>
+      <button class="btn ghost" data-close="modal-form">Cancelar</button>
+      <button class="btn primary" id="form-save">Guardar registro</button>
+    </footer>
+  </div>
+</div>
+
+<!-- ============ MODAL IMPORTACIÓN ============ -->
+<div class="overlay" id="modal-import">
+  <div class="modal">
+    <header>
+      <h3 id="import-title">Subir archivo</h3>
+      <button data-close="modal-import" title="Cerrar">×</button>
+    </header>
+    <div class="body">
+      <div class="grid" style="grid-template-columns:1fr 1fr">
+        <div>
+          <label class="lab">Archivo Excel / CSV</label>
+          <input type="file" id="imp-file" accept=".xlsx,.xls,.xlsm,.csv,.txt" />
+        </div>
+        <div>
+          <label class="lab">Hoja del archivo</label>
+          <select id="imp-sheet" disabled></select>
+        </div>
+      </div>
+      <div class="hint" id="imp-info" style="margin-top:10px">Elige un archivo <b>.xlsx</b>, <b>.xls</b> o <b>.csv</b>. Se detecta automáticamente la fila de encabezados.</div>
+      <div id="imp-mapping-box" style="display:none">
+        <h4 style="margin:16px 0 4px; font-size:13.5px">Correspondencia de encabezados</h4>
+        <p class="hint">Revisa que cada encabezado del archivo apunte al campo correcto. Lo que dejes en <i>Ignorar</i> no se importa.</p>
+        <div class="mapping" id="imp-mapping"></div>
+        <h4 style="margin:16px 0 4px; font-size:13.5px">Vista previa (primeras 5 filas)</h4>
+        <div class="preview" id="imp-preview"></div>
+      </div>
+    </div>
+    <footer>
+      <button class="btn ghost" data-close="modal-import">Cancelar</button>
+      <button class="btn primary" id="imp-confirm" disabled>Importar registros</button>
+    </footer>
+  </div>
+</div>
+
+<!-- ============ ACCESO ============ -->
+<div id="gate">
+  <div class="gate-card">
+    <h2>Acceso al programa</h2>
+    <p id="gate-sub">Ingresa tus credenciales para continuar.</p>
+    <label class="lab">Correo</label>
+    <input id="gate-in-email" placeholder="usuario@hospital.co" autocomplete="username" />
+    <label class="lab" style="margin-top:11px">Contraseña</label>
+    <input id="gate-in-pass" type="password" placeholder="••••••••" autocomplete="current-password" />
+    <div class="err" id="gate-err" style="display:none"></div>
+    <button class="btn primary" id="gate-enter" style="width:100%; justify-content:center; margin-top:16px">Entrar</button>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+/* ==========================================================================
+   PROGRAMA HOSPITALARIO
+   TQ  = TURNOS QUIRÚRGICO        -> tabla: turnos_quirurgicos
+   N.O.= NOTAS OPERATORIAS        -> tabla: notas_operatorias
+   Almacenamiento: navegador (respaldo local) + Supabase (REST) si se configura
+   ========================================================================== */
+
+/* ---------------- utilidades ---------------- */
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const SCRIBE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const letter = i => i < 26 ? SCRIBE[i] : SCRIBE[Math.floor(i/26)-1] + SCRIBE[i%26];
+const pad2 = n => String(n).padStart(2,'0');
+const uid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+                : 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2,9);
+const nowISO = () => new Date().toISOString();
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm = s => String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+                    .toUpperCase().replace(/[°º*.]/g,' ').replace(/\s+/g,' ').trim();
+const keyOf = s => norm(s).replace(/[^A-Z0-9]/g,'');
+
+function isoFromDate(d){
+  if(!d || isNaN(d.getTime())) return '';
+  return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());
+}
+function fmtDate(v){
+  if(!v) return '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v));
+  return m ? m[3] + '/' + m[2] + '/' + m[1] : String(v);
+}
+function parseDateAny(v){
+  if(v == null || v === '') return '';
+  if(v instanceof Date) return isoFromDate(v);
+  if(typeof v === 'number' && v > 20000 && v < 90000){
+    return isoFromDate(new Date(Math.round((v - 25569) * 86400000)));
+  }
+  const s = String(v).trim();
+  let m = /^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/.exec(s);
+  if(m) return m[1] + '-' + pad2(+m[2]) + '-' + pad2(+m[3]);
+  m = /^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/.exec(s);
+  if(m){
+    let a = +m[1], b = +m[2], y = +m[3];
+    if(y < 100) y += 2000;
+    let d = a, mo = b;
+    if(a <= 12 && b > 12){ d = b; mo = a; }        // venía mes/día
+    if(a > 12 && b <= 12){ d = a; mo = b; }
+    if(mo > 12) { const t = d; d = mo; mo = t; }   // d/m latin
+    return y + '-' + pad2(mo) + '-' + pad2(d);
+  }
+  const dt = new Date(s);
+  return isNaN(dt.getTime()) ? s : isoFromDate(dt);
+}
+function toast(msg, kind){
+  const el = document.createElement('div');
+  el.className = 'toast ' + (kind || '');
+  el.innerHTML = msg;
+  $('#toasts').appendChild(el);
+  setTimeout(() => { el.style.transition = '.3s'; el.style.opacity = '0'; el.style.transform = 'translateX(16px)';
+    setTimeout(() => el.remove(), 320); }, kind === 'bad' ? 6500 : 3600);
+}
+function ripple(e){
+  const b = e.currentTarget; const r = b.getBoundingClientRect();
+  const s = document.createElement('span'); s.className = 'ripple';
+  const size = Math.max(r.width, r.height); s.style.width = s.style.height = size + 'px';
+  s.style.left = (e.clientX - r.left - size/2) + 'px'; s.style.top = (e.clientY - r.top - size/2) + 'px';
+  b.appendChild(s); setTimeout(() => s.remove(), 620);
+}
+document.addEventListener('click', e => { const b = e.target.closest('.btn.primary'); if(b) ripple({currentTarget:b, clientX:e.clientX, clientY:e.clientY}); });
+
+/* ---------------- listas / catálogos ---------------- */
+const CATS = [
+  {k:'eps',          label:'EPS'},
+  {k:'autorizador',  label:'AUTORIZADOR'},
+  {k:'tipo_ingr',    label:'TIPO_INGR'},
+  {k:'autorizacion', label:'AUTORIZACION'},
+  {k:'estado',       label:'ESTADO (turnos quirúrgicos)'},
+  {k:'servicio',     label:'SERVICIO ACTUAL'},
+  {k:'especialidad', label:'ESPECIALIDAD'},
+  {k:'prioridad',    label:'PRIORIDAD'},
+  {k:'cups',         label:'CUPS / CÓDIGOS'},
+  {k:'cie10',        label:'CIE10'},
+  {k:'procedimiento',label:'PROCEDIMIENTOS'}
+];
+/* Lista fija del desplegable AUTORIZADOR (debajo de ese encabezado) */
+const AUTORIZADORES = [
+  'ADRIANA CHITAN',
+  'ALEJANDRO SOLARTE',
+  'ALEX VELASCO',
+  'ASTRID ALVARADO',
+  'ERIC FERNÁNDEZ',
+  'JUAN DAVID FERNÁNDEZ',
+  'MARÍA F. CALDERÓN',
+  'YAMILE ALVARADO',
+  'YAMILETH BERMÚDEZ',
+  'SANDRA GÓMEZ',
+  'ANGYE BOLAÑOS'
+];
+/* Lista del ESTADO de los turnos quirúrgicos (validación de la columna estado de la hoja TQ) */
+const ESTADOS_TQ = [
+  'AUTORIZADO',
+  'PENDIENTE',
+  'VERIFICADO',
+  'NO AUTORIZADO',
+  'EN COTIZACIÓN',
+  'GESTIONADO',
+  'CX AMBULATORIA',
+  'EGRESO',
+  'SIN GESTIÓN'
+];
+const CAT_DEFAULT = {
+  eps:['ASOCIACIÓN INDÍGENA DEL CAUCA AIC EPSI INDÍGENA','NUEVA EMPRESA PROMOTORA DE SALUD S.A - NUEVA EPS','ASMET SALUD EPS SAS'],
+  autorizador: AUTORIZADORES.slice(),
+  tipo_ingr:['AMBULATORIO','HOSPITALIZADO'],
+  autorizacion:['VERIFICADO','S'],
+  estado: ESTADOS_TQ.slice(),
+  servicio:['URGENCIAS GINECOOBSTETRICIA','ESTANCIA GENERAL QUIRÚRGICA','HEMATOLOGÍA','ESTANCIA GENERAL PEDIÁTRICA','CIRUGÍA ORTOPÉDICA Y TRAUMATOLOGÍA (PEDIATRICA)'],
+  especialidad:['GINECOLOGÍA Y OBSTETRICIA','CIRUGÍA ONCOLÓGICA','ORTOPEDIA Y TRAUMATOLOGÍA (PEDIATRICA)','MEDICINA INTERNA'],
+  prioridad:['Regular','Urgencia'],
+  cups:[], cie10:[], procedimiento:[]
+};
+
+/* ---------------- esquemas: encabezados tal cual la base ---------------- */
+const SCHEMAS = {
+  tq: {
+    key:'tq', store:'ph_tq_v1', table:'turnos_quirurgicos',
+    title:'TQ · TURNOS QUIRÚRGICO', short:'TQ',
+    fields:[
+      {k:'fecha',           label:'FECHA',              type:'date',  req:true, w:112, dup:true},
+      {k:'hora',            label:'HORA 24 H',          type:'text',  w:96,  dup:true, ph:'6:25'},
+      {k:'documento',       label:'DOCUMENTO',          type:'text',  w:120, dup:true},
+      {k:'nom_paciente',    label:'NOM_PACIENTE',       type:'text',  req:true, w:190},
+      {k:'procedimiento',   label:'PROCEDIMIENTO',      type:'textarea', span:true, w:260, cat:'procedimiento'},
+      {k:'codigo',          label:'CODIGO',             type:'text',  w:104, cat:'cups'},
+      {k:'eps',             label:'EPS',                type:'text',  w:215, cat:'eps'},
+      {k:'ingreso',         label:'INGRESO',            type:'text',  w:110},
+      {k:'tipo_ingr',       label:'TIPO_INGR',          type:'text',  w:130, cat:'tipo_ingr'},
+      {k:'cie10',           label:'CIE10',              type:'text',  w:92,  cat:'cie10'},
+      {k:'autorizacion',    label:'AUTORIZACION',       type:'text',  w:132, cat:'autorizacion'},
+      {k:'num_autorizacion',label:'N° DE AUTORIZACION', type:'text',  w:150},
+      {k:'estado',          label:'ESTADO',             type:'select', w:168, cat:'estado'},
+      {k:'observacion',     label:'OBSERVACION',        type:'textarea', span:true, w:230},
+      {k:'autorizador',     label:'AUTORIZADOR',        type:'select', w:170, cat:'autorizador'}
+    ]
+  },
+  no: {
+    key:'no', store:'ph_no_v1', table:'notas_operatorias',
+    title:'N.O. · NOTAS OPERATORIAS', short:'N.O.',
+    fields:[
+      {k:'fecha',          label:'FECHA',              type:'date',  req:true, w:112, dup:true},
+      {k:'hora',           label:'HORA 24 H',          type:'text',  w:96,  dup:true, ph:'6:25'},
+      {k:'folio_dgh',      label:'FOLIO DGH',          type:'text',  w:120, dup:true},
+      {k:'id_paciente',    label:'N° ID DE PACIENTE',  type:'text',  w:140},
+      {k:'eps',            label:'EPS',                type:'text',  w:200, cat:'eps'},
+      {k:'cups',           label:'CUPS',               type:'text',  w:104, cat:'cups'},
+      {k:'cups_descripcion',label:'CUPS_DESCRIPCION',  type:'textarea', span:true, w:250},
+      {k:'paciente',       label:'PACIENTE',           type:'text',  req:true, w:190},
+      {k:'servicio_actual',label:'SERVICIO ACTUAL',    type:'text',  w:180, cat:'servicio'},
+      {k:'cama',           label:'CAMA',               type:'text',  w:104},
+      {k:'especialidad',   label:'ESPECIALIDAD',       type:'text',  w:190, cat:'especialidad'},
+      {k:'prioridad',      label:'PRIORIDAD',          type:'text',  w:112, cat:'prioridad'},
+      {k:'ac_evento',      label:'AC_EVENTO',          type:'textarea', span:true, w:260, cat:'cie10'},
+      {k:'autorizador',    label:'AUTORIZADOR',        type:'select', w:170, cat:'autorizador'},
+      {k:'observacion',    label:'OBSERVACION',        type:'textarea', span:true, w:230}
+    ]
+  }
+};
+const KEYS = ['tq','no'];
+
+/* ---------------- estado ---------------- */
+const state = {
+  data: {tq:[], no:[]},
+  cats: {},
+  cfg: {url:'', key:'', gate:{on:false, email:'', hash:''}},
+  ui: {
+    tq:{q:'', from:'', to:'', aut:'', limit:300},
+    no:{q:'', from:'', to:'', aut:'', limit:300}
+  },
+  editing: null,
+  imp: null,
+  token: null
+};
+
+/* ---------------- almacenamiento local ---------------- */
+function lsGet(k, def){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; }catch(e){ return def; } }
+function lsSet(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ toast('No se pudo guardar en el navegador.','bad'); return false; } }
+function saveData(key){ lsSet(SCHEMAS[key].store, state.data[key]); }
+function saveCats(){ lsSet('ph_cat_v1', state.cats); }
+function saveCfg(){ lsSet('ph_cfg_v1', state.cfg); }
+
+/* Proyecto Supabase de este programa: "Consolidado de Estancias" */
+const SB_PROYECTO = {
+  url: 'https://cfpsjqrpulyqkyglhynv.supabase.co',
+  key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNmcHNqcXJwdWx5cWt5Z2xoeW52Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExNDk1NDcsImV4cCI6MjEwNjcyNTU0N30.vNUQydrazF06X5eaGc-f7gnG4L5wy76vGs91x9jeEMo',
+  email: 'autorizacioneshospitalarias@hospitalsanjose.gov.co',
+  nombre: 'Consolidado de Estancias (cfpsjqrpulyqkyglhynv)'
+};
+/* Acceso rápido, opcional, al proyecto del cuadro de turnos (botón en Configuración) */
+const SB_TURNOS = {
+  url: 'https://axmngpkcioxjsavolnvl.supabase.co',
+  key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4bW5ncGtjaW94anNhdm9sbnZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0MzY0NTQsImV4cCI6MjEwNTAxMjQ1NH0.7_u6oQzBbqo3eWR6olZTIW_oND6H0QgrMGL1O-8srIU',
+  email: 'autorizacioneshospitalarias@hospitalsanjose.gov.co',
+  nombre: 'axmngpkcioxjsavolnvl (turnos)'
+};
+function loadAll(){
+  /* Proyecto por defecto: "Consolidado de Estancias" */
+  const DEF = {url: SB_PROYECTO.url, key: SB_PROYECTO.key, gate:{on:true, email: SB_PROYECTO.email, hash:''}};
+  const saved = lsGet('ph_cfg_v1', null);
+  state.cfg = saved ? Object.assign({}, DEF, saved) : Object.assign({}, DEF);
+  state.cfg.gate = Object.assign({}, DEF.gate, state.cfg.gate || {});
+  /* si no hay credenciales ni clave local, no se puede exigir acceso (evita quedar bloqueado) */
+  if(state.cfg.gate.on && !state.cfg.gate.hash && !(state.cfg.url && state.cfg.key && state.cfg.gate.email)) state.cfg.gate.on = false;
+  /* restaurar la sesión guardada en este navegador */
+  const ses = lsGet('ph_session', null);
+  if(ses && ses.exp > Date.now() && ses.t && ses.t !== 'local') state.token = ses.t;
+  state.cats = Object.assign({}, CAT_DEFAULT, lsGet('ph_cat_v1', {}));
+  CATS.forEach(c => { if(!Array.isArray(state.cats[c.k])) state.cats[c.k] = []; });
+  /* el desplegable de AUTORIZADOR siempre trae la lista fija + lo que haya en Listas */
+  state.cats.autorizador = Array.from(new Set((state.cats.autorizador || []).concat(AUTORIZADORES)));
+  state.cats.estado = Array.from(new Set((state.cats.estado || []).concat(ESTADOS_TQ)));
+  KEYS.forEach(k => {
+    const rows = lsGet(SCHEMAS[k].store, []);
+    state.data[k] = Array.isArray(rows) ? rows : [];
+  });
+}
+
+/* ---------------- Supabase (REST / PostgREST) ---------------- */
+const sb = {
+  on(){ return !!(state.cfg.url && state.cfg.key); },
+  url(p){ return state.cfg.url.replace(/\/+$/,'') + p; },
+  h(extra){
+    const h = {
+      'apikey': state.cfg.key,
+      'Authorization': 'Bearer ' + (state.token || state.cfg.key),
+      'Content-Type': 'application/json'
+    };
+    return Object.assign(h, extra || {});
+  },
+  async req(p, o){
+    o = o || {};
+    const r = await fetch(this.url(p), {method: o.method || 'GET', headers: this.h(o.headers), body: o.body});
+    const txt = await r.text();
+    let data = null; try { data = txt ? JSON.parse(txt) : null; } catch(e) { data = txt; }
+    if(!r.ok){
+      const code = data && data.code;
+      if(r.status === 401 && state.token){
+        state.token = null;
+        try{ localStorage.removeItem('ph_session'); }catch(e){}
+        showGate('La sesión de Supabase venció. Vuelve a ingresar.');
+        throw new Error('Sesión vencida. Vuelve a ingresar.');
+      }
+      if(code === 'PGRST205' || /Could not find the table/i.test(String(txt))){
+        throw new Error('La tabla aún no existe en Supabase. Ejecuta el script SQL (Configuración → Ver SQL de las tablas).');
+      }
+      const msg = (data && (data.message || data.hint || data.error_description || data.error)) || ('HTTP ' + r.status);
+      throw new Error(msg);
+    }
+    return data;
+  },
+  async pull(table){
+    const out = []; const B = 1000;
+    for(let i = 0; i < 20; i++){
+      const rows = await this.req('/rest/v1/' + table + '?select=*&order=updated_at.desc&limit=' + B + '&offset=' + (i * B));
+      if(!Array.isArray(rows) || !rows.length) break;
+      out.push.apply(out, rows);
+      if(rows.length < B) break;
+    }
+    return out;
+  },
+  async upsert(table, rows){
+    if(!rows.length) return 0;
+    await this.req('/rest/v1/' + table, {
+      method:'POST',
+      headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body: JSON.stringify(rows.map(cleanForServer))
+    });
+    return rows.length;
+  },
+  async remove(table, ids){
+    if(!ids.length) return 0;
+    const list = ids.map(i => '"' + i + '"').join(',');
+    await this.req('/rest/v1/' + table + '?id=in.(' + encodeURIComponent(list) + ')', {method:'DELETE'});
+    return ids.length;
+  }
+};
+function cleanForServer(r){
+  const o = {};
+  Object.keys(r).forEach(k => { if(k.charAt(0) !== '_' && k !== 'localOnly') o[k] = r[k]; });
+  return o;
+}
+/* ==========================================================================
+   IMPORTACIÓN (Excel / CSV) y EXPORTACIÓN
+   ========================================================================== */
+const ALIASES = {
+  tq: {
+    fecha:['FECHA','FECHACIRUGIA','FECHAPROCEDIMIENTO','FECHAINGRESO','FECHATURNO'],
+    hora:['HORA','HORA24H','HORACIRUGIA','HORAINGRESO'],
+    documento:['DOCUMENTO','DOCUMENTOPACIENTE','CEDULA','IDENTIFICACION','NODOCUMENTO','NUMERODOCUMENTO'],
+    nom_paciente:['NOMPACIENTE','NOMBREPACIENTE','NOMBRES','PACIENTE','NOMBRE'],
+    procedimiento:['PROCEDIMIENTO','PROCEDIMIENTOS','DESCRIPCIONPROCEDIMIENTO','NOMBREPROCEDIMIENTO'],
+    codigo:['CODIGO','COD','CODIGOPROCEDIMIENTO'],
+    eps:['EPS','ENTIDAD','ASEGURADORA'],
+    ingreso:['INGRESO','NUMEROINGRESO','NINGRESO'],
+    tipo_ingr:['TIPOINGR','TIPOINGRESO','TIPO','MODALIDAD'],
+    cie10:['CIE10','DIAGNOSTICO','DX','CODIGODIAGNOSTICO'],
+    autorizacion:['AUTORIZACION','ESTADOAUTORIZACION','AUTORIZADO'],
+    estado:['ESTADO','ESTADOTURNO','ESTADOTQ','ESTADOTURNOS'],
+    num_autorizacion:['NDEAUTORIZACION','NUMERODEAUTORIZACION','NOAUTORIZACION','NUMAUTORIZACION','NUMEROAUTORIZACION','NUMERO'],
+    observacion:['OBSERVACION','OBSERVACIONES','OBS','NOTA'],
+    autorizador:['AUTORIZADOR','RESPONSABLE','USUARIO','AUDITOR']
+  },
+  no: {
+    fecha:['FECHA','FECHAPROCEDIMIENTO','FECHAINGRESO'],
+    hora:['HORA','HORA24H'],
+    folio_dgh:['FOLIODGH','FOLIO','FOLIODC'],
+    id_paciente:['NIDDEPACIENTE','IDPACIENTE','NIDPACIENTE','NUMEROIDPACIENTE','IDENTIFICACION','DOCUMENTO'],
+    eps:['EPS','ENTIDAD','ASEGURADORA'],
+    cups:['CUPS','CODIGOCUPS','CODIGO'],
+    cups_descripcion:['CUPSDESCRIPCION','DESCRIPCIONCUPS','DESCRIPCIONPROCEDIMIENTO','PROCEDIMIENTO','DESCRIPCION'],
+    paciente:['PACIENTE','NOMBREPACIENTE','NOMPACIENTE','NOMBRES','NOMBRE'],
+    servicio_actual:['SERVICIOACTUAL','SERVICIO'],
+    cama:['CAMA','CAMAACTUAL'],
+    especialidad:['ESPECIALIDAD'],
+    prioridad:['PRIORIDAD','PRIORIDADATENCION','URGENCIA'],
+    ac_evento:['ACEVENTO','ACTIVIDADEVENTO','EVENTO','CIE10','DIAGNOSTICOS','DIAGNOSTICO'],
+    autorizador:['AUTORIZADOR','RESPONSABLE','USUARIO'],
+    observacion:['OBSERVACION','OBSERVACIONES','OBS','NOTA']
+  }
+};
+function autoMap(key, header){
+  const s = SCHEMAS[key], hk = keyOf(header);
+  if(!hk) return '';
+  const direct = s.fields.find(f => keyOf(f.label) === hk || keyOf(f.k) === hk);
+  if(direct) return direct.k;
+  const al = ALIASES[key] || {};
+  const fk = Object.keys(al).find(f => al[f].indexOf(hk) >= 0);
+  if(fk) return fk;
+  const pref = Object.keys(al).find(f => al[f].some(a => a.length > 4 && (a.indexOf(hk) === 0 || hk.indexOf(a) === 0)));
+  if(pref) return pref;
+  const contains = Object.keys(al).filter(f => al[f].some(a => a.length > 5 && hk.indexOf(a) > 0));
+  return contains.length === 1 ? contains[0] : '';
+}
+function dupKey(key, rec){
+  return SCHEMAS[key].fields.filter(f => f.dup).map(f => norm(rec[f.k])).join('|');
+}
+/* --- CSV nativo (respaldo si no hay conexión para SheetJS) --- */
+function parseCsvRows(txt, delim){
+  const rows = []; let row = [], cell = '', q = false;
+  txt = txt.replace(/^\uFEFF/, '');
+  for(let i = 0; i < txt.length; i++){
+    const c = txt[i];
+    if(q){
+      if(c === '"'){ if(txt[i+1] === '"'){ cell += '"'; i++; } else q = false; }
+      else cell += c;
+    } else if(c === '"') q = true;
+    else if(c === delim){ row.push(cell); cell = ''; }
+    else if(c === '\n'){ row.push(cell); rows.push(row); row = []; cell = ''; }
+    else if(c === '\r'){ /* ignorar */ }
+    else cell += c;
+  }
+  if(cell !== '' || row.length){ row.push(cell); rows.push(row); }
+  return rows;
+}
+function detectDelim(txt){
+  const line = txt.split(/\r?\n/).slice(0, 5).join('\n');
+  const cand = ['\t', ';', ',', '|'];
+  let best = ',', bestN = 0;
+  cand.forEach(d => { const n = (line.match(new RegExp('\\' + d, 'g')) || []).length; if(n > bestN){ bestN = n; best = d; } });
+  return best;
+}
+/* --- flujo de importación --- */
+function openImport(key){
+  state.imp = {key:key, wb:null, aoa:[], headers:[], headerRow:0, map:{}, sheet:''};
+  $('#import-title').innerHTML = 'Subir archivo · <b>' + esc(SCHEMAS[key].title) + '</b>';
+  $('#imp-file').value = '';
+  $('#imp-sheet').innerHTML = ''; $('#imp-sheet').disabled = true;
+  $('#imp-mapping-box').style.display = 'none';
+  $('#imp-confirm').disabled = true;
+  $('#imp-info').innerHTML = 'Elige tu archivo <b>.xlsx</b>, <b>.xls</b>, <b>.xlsm</b> o <b>.csv</b>. Se detectan la hoja y la fila de encabezados automáticamente.';
+  $('#modal-import').classList.add('open');
+}
+function wantSheetNames(key){
+  return key === 'tq'
+    ? ['TQ','TURNOS','TURNOSQUIRURGICOS','TURNOSQUIRURGICO']
+    : ['NO','NOTAS','NOTASOPERATORIAS','NO.','NOTAOPERATORIA'];
+}
+async function readImportFile(file){
+  const imp = state.imp;
+  if(window.XLSX){
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(new Uint8Array(buf), {cellDates:true});
+    imp.wb = wb;
+    const sel = $('#imp-sheet');
+    sel.innerHTML = wb.SheetNames.map(n => '<option>' + esc(n) + '</option>').join('');
+    sel.disabled = wb.SheetNames.length < 2;
+    const wants = wantSheetNames(imp.key);
+    const pick = wb.SheetNames.find(n => wants.indexOf(keyOf(n)) >= 0) || wb.SheetNames[0];
+    sel.value = pick;
+    loadSheet(pick);
+  } else {
+    const txt = await file.text();
+    imp.wb = null;
+    const sel = $('#imp-sheet');
+    sel.innerHTML = '<option>CSV</option>'; sel.disabled = true;
+    loadSheet('CSV', parseCsvRows(txt, detectDelim(txt)));
+  }
+}
+function loadSheet(name, aoaGiven){
+  const imp = state.imp;
+  let aoa = aoaGiven;
+  if(!aoa){
+    const ws = imp.wb.Sheets[name];
+    aoa = ws ? XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:'', blankrows:false}) : [];
+  }
+  imp.sheet = name; imp.aoa = aoa;
+  if(!aoa.length){ $('#imp-info').innerHTML = 'La hoja <b>' + esc(name) + '</b> está vacía.'; $('#imp-mapping-box').style.display = 'none'; $('#imp-confirm').disabled = true; return; }
+  /* detectar fila de encabezados */
+  const s = SCHEMAS[imp.key];
+  let bestRow = 0, bestScore = -1;
+  for(let r = 0; r < Math.min(10, aoa.length); r++){
+    const score = (aoa[r] || []).filter(c => autoMap(imp.key, c)).length;
+    if(score > bestScore){ bestScore = score; bestRow = r; }
+  }
+  imp.headerRow = bestScore >= 1 ? bestRow : 0;
+  const hdr = aoa[imp.headerRow] || [];
+  imp.headers = hdr.map((h, i) => ({i:i, text:String(h == null ? '' : h).trim() || ('Columna ' + letter(i))}));
+  const used = {};
+  imp.map = {};
+  imp.headers.forEach(h => {
+    let fk = autoMap(imp.key, h.text);
+    if(fk && used[fk]) fk = '';
+    if(fk) used[fk] = true;
+    imp.map[h.i] = fk || '';
+  });
+  renderMapping();
+  const nRows = Math.max(0, aoa.length - imp.headerRow - 1);
+  $('#imp-info').innerHTML = 'Hoja <b>' + esc(name) + '</b> · encabezados en la fila <b>' + (imp.headerRow + 1) + '</b> · <b>' + nRows + '</b> fila(s) de datos.';
+}
+function renderMapping(){
+  const imp = state.imp, s = SCHEMAS[imp.key];
+  $('#imp-mapping-box').style.display = 'block';
+  const opts = fk => '<option value="">— Ignorar —</option>' + s.fields.map(f =>
+    '<option value="' + f.k + '"' + (f.k === fk ? ' selected' : '') + '>' + esc(f.label) + '</option>').join('');
+  $('#imp-mapping').innerHTML = imp.headers.map(h =>
+    '<div class="mapping-row"><span class="src">' + letter(h.i) + ' · ' + esc(h.text) + '</span>' +
+    '<select data-col="' + h.i + '">' + opts(imp.map[h.i]) + '</select></div>').join('');
+  $('#imp-mapping').onchange = e => {
+    const c = e.target.dataset.col; if(c == null) return;
+    imp.map[c] = e.target.value;
+    renderPreview(); updateImportBtn();
+  };
+  renderPreview(); updateImportBtn();
+}
+function renderPreview(){
+  const imp = state.imp, s = SCHEMAS[imp.key];
+  const cols = imp.headers.filter(h => imp.map[h.i]);
+  const rows = imp.aoa.slice(imp.headerRow + 1, imp.headerRow + 6);
+  if(!cols.length){ $('#imp-preview').innerHTML = '<div class="empty">Asigna al menos un encabezado para ver la vista previa.</div>'; return; }
+  $('#imp-preview').innerHTML = '<table><thead><tr>' + cols.map(h =>
+      '<th>' + esc((s.fields.find(f => f.k === imp.map[h.i]) || {}).label || h.text) + '</th>').join('') + '</tr></thead><tbody>' +
+    rows.map(r => '<tr>' + cols.map(h => {
+      let v = r[h.i]; if(v instanceof Date) v = isoFromDate(v);
+      return '<td>' + (esc(String(v == null ? '' : v).slice(0, 90)) || '—') + '</td>';
+    }).join('') + '</tr>').join('') + '</tbody></table>';
+}
+function updateImportBtn(){
+  const imp = state.imp;
+  const mapped = Object.keys(imp.map).filter(i => imp.map[i]);
+  $('#imp-confirm').disabled = !mapped.length;
+}
+async function runImport(){
+  const imp = state.imp, key = imp.key, s = SCHEMAS[key];
+  const idx = {};
+  Object.keys(imp.map).forEach(i => { if(imp.map[i]) idx[imp.map[i]] = +i; });
+  const mapped = Object.keys(idx);
+  if(!mapped.length) return;
+  let nuevos = 0, act = 0, vacios = 0;
+  const byDup = {};
+  state.data[key].forEach(r => { const d = dupKey(key, r); if(d) byDup[d] = r; });
+  const toPush = [];
+  imp.aoa.slice(imp.headerRow + 1).forEach(row => {
+    const rec = {}; let any = false;
+    mapped.forEach(fk => {
+      let v = row[idx[fk]];
+      if(v instanceof Date) v = isoFromDate(v);
+      if(fk === 'fecha') v = parseDateAny(v);
+      v = String(v == null ? '' : v).replace(/\s+$/,'').trim();
+      if(v) any = true;
+      rec[fk] = v;
+    });
+    if(!any){ vacios++; return; }
+    const d = dupKey(key, rec);
+    if(d && byDup[d]){
+      const prev = byDup[d];
+      Object.assign(prev, rec, {updated_at: nowISO(), _sync:'pending'});
+      act++; toPush.push(prev);
+    } else {
+      const r = Object.assign({id: uid(), created_at: nowISO(), updated_at: nowISO(), _sync:'pending'}, rec);
+      state.data[key].unshift(r);
+      if(d) byDup[d] = r;
+      nuevos++; toPush.push(r);
+    }
+  });
+  saveData(key); renderPanel(key);
+  closeModal('modal-import');
+  toast('Importación en <b>' + esc(s.short) + '</b>: ' + nuevos + ' nuevos, ' + act + ' actualizados' +
+        (vacios ? ', ' + vacios + ' fila(s) vacía(s) omitida(s)' : '') + '.', 'ok');
+  if(sb.on() && toPush.length){
+    try{
+      await sb.upsert(s.table, toPush);
+      toPush.forEach(r => r._sync = 'synced');
+      saveData(key); renderPanel(key); setStatus();
+      toast('Sincronizado con Supabase (' + toPush.length + ' registros).', 'ok');
+    }catch(err){ toast('Se guardó en el navegador. Supabase: ' + esc(err.message), 'warn'); }
+  }
+}
+/* --- exportación --- */
+function download(name, blob){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 400);
+}
+function sheetAoa(key, withRows){
+  const s = SCHEMAS[key];
+  const aoa = [['N°'].concat(s.fields.map(f => f.label))];
+  if(withRows) rowsOf(key).forEach((r, i) => aoa.push([i + 1].concat(s.fields.map(f => f.type === 'date' ? fmtDate(r[f.k]) : (r[f.k] || '')))));
+  return aoa;
+}
+function listasAoa(){
+  const aoa = [['LISTA','VALOR']];
+  CATS.forEach(c => (state.cats[c.k] || []).forEach(v => aoa.push([c.label, v])));
+  return aoa;
+}
+function exportWorkbook(template){
+  const name = (template ? 'PLANTILLA' : 'BASE_TQ_NO') + '_' + isoFromDate(new Date()) + '.xlsx';
+  if(!window.XLSX){
+    toast('Sin conexión para el generador de Excel: se exportan CSV.','warn');
+    exportCsv('tq'); exportCsv('no'); return;
+  }
+  const wb = XLSX.utils.book_new();
+  KEYS.forEach(k => {
+    const ws = XLSX.utils.aoa_to_sheet(sheetAoa(k, !template));
+    ws['!cols'] = [{wch:6}].concat(SCHEMAS[k].fields.map(f => ({wch: Math.min(42, Math.max(11, Math.round((f.w || 130) / 7)))})));
+    XLSX.utils.book_append_sheet(wb, ws, k === 'tq' ? 'TQ' : 'N.O.');
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(listasAoa()), 'Listas');
+  XLSX.writeFile(wb, name);
+  toast(template ? 'Plantilla descargada.' : 'Libro Excel generado (' + name + ').', 'ok');
+}
+function exportCsv(key){
+  const s = SCHEMAS[key];
+  const cell = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const lines = [['N°'].concat(s.fields.map(f => f.label)).map(cell).join(';')];
+  rowsOf(key).forEach((r, i) => lines.push([i + 1].concat(s.fields.map(f => f.type === 'date' ? fmtDate(r[f.k]) : (r[f.k] || ''))).map(cell).join(';')));
+  download((key === 'tq' ? 'TQ_TURNOS' : 'NO_NOTAS') + '_' + isoFromDate(new Date()) + '.csv',
+           new Blob(['\uFEFF' + lines.join('\r\n')], {type:'text/csv;charset=utf-8'}));
+  toast('CSV exportado.','ok');
+}
+
+/* ---------------- lectura / filtros ---------------- */
+function rowsOf(key){
+  const s = SCHEMAS[key], u = state.ui[key], q = norm(u.q);
+  const list = state.data[key].filter(r => {
+    if(u.from && String(r.fecha || '') < u.from) return false;
+    if(u.to   && String(r.fecha || '') > u.to)   return false;
+    if(u.aut  && norm(r.autorizador) !== norm(u.aut)) return false;
+    if(!q) return true;
+    return s.fields.some(f => norm(r[f.k]).indexOf(q) >= 0);
+  });
+  list.sort((a, b) => {
+    const f = String(b.fecha || '').localeCompare(String(a.fecha || ''));
+    if(f) return f;
+    return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+  });
+  return list;
+}
+const isPending = r => r._sync !== 'synced';
+const isHoy = r => String(r.fecha || '') === isoFromDate(new Date());
+function verified(r){ return /VERIFIC/i.test(String(r.autorizacion || '')); }
+
+function pillAut(v){
+  if(!v) return '<span class="pill muted">—</span>';
+  if(/VERIFIC/i.test(v)) return '<span class="pill ok">' + esc(v) + '</span>';
+  if(/^S$/i.test(String(v).trim())) return '<span class="pill warn">S · sin verificar</span>';
+  return '<span class="pill info">' + esc(v) + '</span>';
+}
+/* opciones de un desplegable: lista fija + lista editable (Listas) + valor que ya tenga el registro */
+function optsFor(catKey, extra){
+  const fija = catKey === 'autorizador' ? AUTORIZADORES : (catKey === 'estado' ? ESTADOS_TQ : []);
+  const seen = {}, out = [];
+  fija.concat(state.cats[catKey] || [], extra ? [extra] : []).forEach(v => {
+    const t = String(v == null ? '' : v).trim();
+    if(!t) return;
+    const k = norm(t);
+    if(seen[k]) return;
+    seen[k] = 1; out.push(t);
+  });
+  return out;
+}
+function autorizadorOptions(extra){ return optsFor('autorizador', extra); }
+/* color del desplegable según el estado del turno */
+function estadoClass(v){
+  const t = norm(v);
+  if(!t) return '';
+  if(/^(AUTORIZADO|VERIFICADO)$/.test(t)) return ' sel-ok';
+  if(/PENDIENTE|COTIZACION/.test(t)) return ' sel-pend';
+  if(/NO AUTORIZADO|SIN GESTION|ANULAD/.test(t)) return ' sel-no';
+  return ' sel-info';
+}
+function selectHtml(f, rec){
+  const cur = String(rec[f.k] || '').trim();
+  const opts = ['<option value="">—</option>'].concat(optsFor(f.cat, cur).map(v =>
+    '<option' + (norm(v) === norm(cur) ? ' selected' : '') + '>' + esc(v) + '</option>'));
+  return '<select class="cell-sel' + (f.cat === 'estado' ? estadoClass(cur) : '') + '" data-id="' + esc(rec.id) +
+         '" data-field="' + esc(f.k) + '" title="Selecciona ' + esc(f.label) + '">' + opts.join('') + '</select>';
+}
+function cellHtml(f, v){
+  if(f.k === 'autorizacion') return pillAut(v);
+  if(f.type === 'date') return fmtDate(v) ? esc(fmtDate(v)) : '<span style="color:#b6aec2">—</span>';
+  let s = esc(v);
+  if(f.type === 'textarea') s = s.replace(/\n/g, '<br>');
+  return s || '<span style="color:#b6aec2">—</span>';
+}
+
+/* ---------------- render ---------------- */
+function renderStats(key){
+  const all = state.data[key], hoy = all.filter(isHoy).length, pen = all.filter(isPending).length;
+  const third = key === 'tq'
+    ? {v: all.filter(verified).length, l:'Verificados'}
+    : {v: all.filter(r => /URGEN/i.test(String(r.prioridad || ''))).length, l:'Urgencias'};
+  $('#stats-' + key).innerHTML =
+    '<div class="stat"><b>' + all.length + '</b><span>Registros ' + esc(SCHEMAS[key].short) + '</span></div>' +
+    '<div class="stat"><b>' + hoy + '</b><span>De hoy</span></div>' +
+    '<div class="stat"><b>' + third.v + '</b><span>' + third.l + '</span></div>' +
+    '<div class="stat"><b>' + pen + '</b><span>Por sincronizar</span></div>';
+}
+function renderHead(key){
+  const s = SCHEMAS[key];
+  $('#head-' + key).innerHTML = '<tr><th style="width:96px">ACCIONES</th>' +
+    s.fields.map((f, i) =>
+      '<th style="min-width:' + (f.w || 120) + 'px"><span class="col-letter">' + letter(i + 1) + '</span>' + esc(f.label) + '</th>'
+    ).join('') + '</tr>';
+}
+function renderBody(key){
+  const s = SCHEMAS[key], all = rowsOf(key), u = state.ui[key];
+  const shown = all.slice(0, u.limit);
+  const tb = $('#body-' + key);
+  if(!all.length){
+    tb.innerHTML = '<tr><td colspan="' + (s.fields.length + 1) + '"><div class="empty"><b>Sin registros ' + esc(s.short) + '</b>' +
+      'Sube tu archivo Excel/CSV o crea el primer registro.</div></td></tr>';
+  } else {
+    tb.innerHTML = shown.map(r =>
+      '<tr class="' + (isPending(r) ? 'pending' : '') + '" data-id="' + esc(r.id) + '">' +
+      '<td class="actions" data-label="ACCIONES">' +
+        '<button class="edit" data-id="' + esc(r.id) + '">Editar</button>' +
+        '<button class="del" data-id="' + esc(r.id) + '">Borrar</button>' +
+      '</td>' +
+      s.fields.map(f => '<td' + (f.type === 'select' ? ' class="sel-cell"' : '') + ' data-label="' + esc(f.label) + '">' +
+        (f.type === 'select' ? selectHtml(f, r) : cellHtml(f, r[f.k])) + '</td>').join('') +
+      '</tr>'
+    ).join('');
+  }
+  $('#info-' + key).innerHTML =
+    '<span>Mostrando <b>' + shown.length + '</b> de <b>' + all.length + '</b> registro(s)' +
+    (all.length > shown.length ? ' filtrados' : '') + '.</span>' +
+    (all.length > shown.length ? '<button class="btn ghost" id="more-' + key + '">Ver 300 más</button>' : '') +
+    '<span class="hint">Las filas con barra amarilla aún no están sincronizadas con Supabase.</span>';
+  const more = $('#more-' + key);
+  if(more) more.onclick = () => { u.limit += 300; renderBody(key); };
+}
+function renderPanel(key){ renderStats(key); renderHead(key); renderBody(key); refreshAutFilter(key); }
+function refreshAutFilter(key){
+  const sel = $('#tool-' + key + ' [data-act="aut"]');
+  if(!sel) return;
+  const cur = sel.value;
+  const fijos = autorizadorOptions();
+  const extra = Array.from(new Set(state.data[key].map(r => String(r.autorizador || '').trim()).filter(Boolean)))
+                     .filter(v => !fijos.some(x => norm(x) === norm(v)));
+  const valores = fijos.concat(extra);
+  sel.innerHTML = '<option value="">Todos</option>' + valores.map(v =>
+    '<option' + (norm(v) === norm(cur) ? ' selected' : '') + '>' + esc(v) + '</option>').join('');
+}
+
+/* ---------------- barra de herramientas ---------------- */
+function buildToolbar(key){
+  const s = SCHEMAS[key], t = $('#tool-' + key);
+  t.innerHTML =
+    '<button class="btn primary" data-act="upload">' +
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 16V4m0 0-4 4m4-4 4 4M4 20h16"/></svg> Subir Excel/CSV</button>' +
+    '<button class="btn" data-act="new">＋ Nuevo registro</button>' +
+    '<button class="btn" data-act="xlsx">Exportar Excel</button>' +
+    '<button class="btn ghost" data-act="csv">CSV</button>' +
+    '<span class="spacer"></span>' +
+    '<input class="search" type="search" data-act="q" placeholder="Buscar en ' + esc(s.short) + '…" />' +
+    '<span class="field-inline">Desde <input type="date" data-act="from" style="width:152px" /></span>' +
+    '<span class="field-inline">Hasta <input type="date" data-act="to" style="width:152px" /></span>' +
+    '<span class="field-inline">Autorizador <select data-act="aut" style="width:205px"><option value="">Todos</option></select></span>' +
+    '<button class="btn ghost" data-act="clear">Limpiar</button>';
+  const u = state.ui[key];
+  t.addEventListener('input', e => {
+    const a = e.target.dataset.act;
+    if(a === 'q'){ u.q = e.target.value; u.limit = 300; renderBody(key); }
+    if(a === 'from'){ u.from = e.target.value; u.limit = 300; renderBody(key); }
+    if(a === 'to'){ u.to = e.target.value; u.limit = 300; renderBody(key); }
+  });
+  t.addEventListener('change', e => {
+    if(e.target.dataset.act === 'aut'){ u.aut = e.target.value; u.limit = 300; renderBody(key); }
+  });
+  t.addEventListener('click', e => {
+    const b = e.target.closest('[data-act]'); if(!b) return;
+    const a = b.dataset.act;
+    if(a === 'upload') openImport(key);
+    if(a === 'new') openForm(key, null);
+    if(a === 'xlsx') exportWorkbook();
+    if(a === 'csv') exportCsv(key);
+    if(a === 'clear'){
+      u.q = ''; u.from = ''; u.to = ''; u.aut = ''; u.limit = 300;
+      t.querySelector('[data-act="q"]').value = '';
+      t.querySelector('[data-act="from"]').value = '';
+      t.querySelector('[data-act="to"]').value = '';
+      t.querySelector('[data-act="aut"]').value = '';
+      renderBody(key);
+    }
+  });
+}
+
+/* ---------------- formulario (crear / editar) ---------------- */
+function openForm(key, id){
+  const s = SCHEMAS[key];
+  const rec = id ? state.data[key].find(r => r.id === id) : null;
+  state.editing = {key:key, id: id || null};
+  $('#form-title').innerHTML = (rec ? 'Editar' : 'Nuevo') + ' · <b>' + esc(s.title) + '</b>';
+  $('#form-err').style.display = 'none';
+  const g = $('#form-grid');
+  g.innerHTML = s.fields.map(f => {
+    const val = rec ? (rec[f.k] == null ? '' : rec[f.k]) : '';
+    const esSelect = f.type === 'select';
+    const opts = esSelect
+      ? optsFor(f.cat, val)
+      : (CATS.some(c => c.k === f.cat) ? (state.cats[f.cat] || []) : []);
+    let extra = '';
+    if(f.type === 'textarea' && opts.length){
+      extra = '<select data-sugg="' + f.k + '" style="margin-top:6px; font-size:12.5px"><option value="">＋ Insertar sugerencia…</option>' +
+        opts.map(o => '<option>' + esc(o) + '</option>').join('') + '</select>';
+    }
+    const usaLista = !esSelect && f.type !== 'textarea';
+    const dl = (opts.length && usaLista)
+      ? '<datalist id="dl-' + key + '-' + f.k + '">' + opts.map(o => '<option value="' + esc(o) + '"></option>').join('') + '</datalist>' : '';
+    const la = (opts.length && usaLista) ? ' list="dl-' + key + '-' + f.k + '"' : '';
+    let input;
+    if(f.type === 'textarea'){
+      input = '<textarea data-f="' + f.k + '" placeholder="' + esc(f.ph || '') + '">' + esc(val) + '</textarea>';
+    } else if(esSelect){
+      input = '<select data-f="' + f.k + '"><option value="">— Selecciona —</option>' +
+        opts.map(o => '<option' + (norm(o) === norm(val) ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select>';
+    } else {
+      input = '<input type="' + (f.type === 'date' ? 'date' : 'text') + '" data-f="' + f.k + '" value="' + esc(val) + '" placeholder="' + esc(f.ph || '') + '"' + la + ' />';
+    }
+    return '<div class="' + (f.span ? 'full' : '') + '">' + dl +
+      '<label class="lab">' + esc(f.label) + (f.req ? ' <span class="req">*</span>' : '') + '</label>' + input + extra + '</div>';
+  }).join('');
+  g.onchange = e => {
+    const k = e.target.dataset.sugg; if(!k) return;
+    const v = e.target.value; if(!v) return;
+    const ta = g.querySelector('[data-f="' + k + '"]');
+    ta.value = (ta.value ? ta.value.replace(/\s*$/, '') + '\n' : '') + v;
+    e.target.value = '';
+  };
+  $('#modal-form').classList.add('open');
+  setTimeout(() => { const i = g.querySelector('input,textarea'); if(i) i.focus(); }, 70);
+}
+function collectForm(){
+  const key = state.editing.key, s = SCHEMAS[key], out = {}, missing = [];
+  s.fields.forEach(f => {
+    const el = $('#form-grid [data-f="' + f.k + '"]');
+    let v = el ? String(el.value || '').trim() : '';
+    el && el.classList.remove('bad');
+    if(f.type === 'date' && v) v = parseDateAny(v);
+    if(f.req && !v){ missing.push(f.label); el && el.classList.add('bad'); }
+    out[f.k] = v;
+  });
+  return {values: out, missing: missing, key: key};
+}
+function saveForm(){
+  const c = collectForm();
+  if(c.missing.length){
+    $('#form-err').style.display = 'block';
+    $('#form-err').textContent = 'Completa los campos obligatorios: ' + c.missing.join(', ') + '.';
+    return;
+  }
+  $('#form-err').style.display = 'none';
+  const key = c.key, id = state.editing.id;
+  const prev = id ? state.data[key].find(r => r.id === id) : null;
+  const rec = Object.assign({
+    id: id || uid(),
+    created_at: prev ? prev.created_at : nowISO(),
+    updated_at: nowISO(),
+    _sync: 'pending'
+  }, c.values);
+  commit(key, rec);
+  closeModal('modal-form');
+  toast((prev ? 'Registro actualizado' : 'Registro guardado') + ' en <b>' + esc(SCHEMAS[key].short) + '</b>.', 'ok');
+}
+async function commit(key, rec){
+  const arr = state.data[key];
+  const i = arr.findIndex(r => r.id === rec.id);
+  if(i >= 0) arr[i] = rec; else arr.unshift(rec);
+  saveData(key);
+  renderPanel(key);
+  if(sb.on()){
+    try{
+      await sb.upsert(SCHEMAS[key].table, [rec]);
+      rec._sync = 'synced'; saveData(key); renderBody(key); setStatus();
+    }catch(err){
+      toast('Guardado en el navegador. Supabase respondió: ' + esc(err.message), 'warn');
+    }
+  }
+}
+async function deleteRecord(key, id){
+  const r = state.data[key].find(x => x.id === id);
+  const nom = r ? (r.nom_paciente || r.paciente || '') : '';
+  if(!confirm('¿Borrar este registro' + (nom ? ' de ' + nom : '') + '?\n\nEsta acción no se puede deshacer.')) return;
+  state.data[key] = state.data[key].filter(x => x.id !== id);
+  saveData(key); renderPanel(key);
+  if(sb.on()){
+    try{ await sb.remove(SCHEMAS[key].table, [id]); }
+    catch(err){ toast('Borrado local; no se pudo borrar en Supabase: ' + esc(err.message), 'warn'); }
+  }
+  toast('Registro borrado.', 'ok');
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('td.actions button'); if(!b) return;
+  const table = b.closest('table'), key = table.id === 'table-tq' ? 'tq' : 'no';
+  if(b.classList.contains('edit')) openForm(key, b.dataset.id);
+  if(b.classList.contains('del')) deleteRecord(key, b.dataset.id);
+});
+/* desplegable AUTORIZADOR: se cambia directamente sobre la tabla */
+document.addEventListener('change', async e => {
+  const sel = e.target && e.target.closest ? e.target.closest('select.cell-sel') : null;
+  if(!sel) return;
+  const table = sel.closest('table');
+  if(!table) return;
+  const key = table.id === 'table-tq' ? 'tq' : 'no';
+  const rec = state.data[key].find(r => r.id === sel.dataset.id);
+  if(!rec) return;
+  const nuevo = String(sel.value || '').trim();
+  if(norm(nuevo) === norm(rec.autorizador)) return;
+  rec.autorizador = nuevo;
+  rec.updated_at = nowISO();
+  rec._sync = 'pending';
+  saveData(key);
+  renderStats(key); renderBody(key); refreshAutFilter(key);
+  toast('AUTORIZADOR de ' + esc(rec.nom_paciente || rec.paciente || 'el registro') + ': ' +
+        (nuevo ? '<b>' + esc(nuevo) + '</b>' : 'vacío'), 'ok');
+  if(sb.on()){
+    try{
+      await sb.upsert(SCHEMAS[key].table, [rec]);
+      rec._sync = 'synced'; saveData(key); renderBody(key); setStatus();
+    }catch(err){ toast('Guardado en el navegador. Supabase: ' + esc(err.message), 'warn'); }
+  }
+});
+function closeModal(id){ $('#' + id).classList.remove('open'); }
+document.addEventListener('click', e => {
+  const c = e.target.closest('[data-close]'); if(c) closeModal(c.dataset.close);
+  if(e.target.classList && e.target.classList.contains('overlay')) e.target.classList.remove('open');
+});
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape') $$('.overlay.open').forEach(o => o.classList.remove('open'));
+});
+
+/* ==========================================================================
+   LISTAS (catálogos que alimentan los formularios)
+   ========================================================================== */
+function fillCatSelect(){
+  const sel = $('#cat-select');
+  sel.innerHTML = CATS.map(c => '<option value="' + c.k + '">' + esc(c.label) + '</option>').join('');
+  sel.onchange = loadCatToText;
+  loadCatToText();
+}
+function loadCatToText(){
+  const k = $('#cat-select').value;
+  $('#cat-values').value = (state.cats[k] || []).join('\n');
+  const used = KEYS.reduce((n, key) => n + state.data[key].filter(r => String(r[k] || '').trim() !== '').length, 0);
+  const lab = (CATS.find(c => c.k === k) || {}).label || k;
+  $('#cat-hint').innerHTML = 'Lista <b>' + esc(lab) + '</b>' +
+    (used ? ' · ' + used + ' registro(s) ya usan valores de esta lista.' : '') +
+    ' · Estas sugerencias aparecen al escribir en los formularios.';
+}
+function saveCat(){
+  const k = $('#cat-select').value;
+  const vals = $('#cat-values').value.split(/\r?\n/).map(v => v.trim()).filter(Boolean);
+  state.cats[k] = Array.from(new Set(vals));
+  saveCats();
+  loadCatToText();
+  toast('Lista guardada (' + state.cats[k].length + ' valores).','ok');
+}
+
+/* ==========================================================================
+   CONFIGURACIÓN · SUPABASE · SINCRONIZACIÓN
+   ========================================================================== */
+function setStatus(){
+  const on = sb.on();
+  $('#status-dot').className = 'dot' + (on ? '' : ' off');
+  $('#status-text').textContent = on ? 'Supabase conectado' : 'Local (navegador)';
+  $('#chip-status').title = on ? ('Supabase: ' + state.cfg.url) : 'Los datos se guardan en este navegador';
+}
+function sqlScript(){
+  const one = (table, fields) =>
+    'create table if not exists public.' + table + ' (\n' +
+    '  id text primary key,\n' +
+    '  created_at timestamptz default now(),\n' +
+    '  updated_at timestamptz default now(),\n' +
+    fields.map(f => '  ' + f.k + ' ' + (f.type === 'date' ? 'date' : 'text')).join(',\n') +
+    '\n);\n\n' +
+    'alter table public.' + table + ' enable row level security;\n' +
+    'drop policy if exists "acceso_' + table + '" on public.' + table + ';\n' +
+    'create policy "acceso_' + table + '" on public.' + table + '\n' +
+    '  for all to authenticated using (true) with check (true);\n' +
+    'create index if not exists idx_' + table + '_fecha on public.' + table + '(fecha desc);\n';
+  const proj = state.cfg.url || '(pega aqui la URL del proyecto que uses, p. ej. "Consolidado de Estancias")';
+  const mail = (state.cfg.gate && state.cfg.gate.email) || '(el correo con el que entras al programa)';
+  return '-- PROGRAMA HOSPITALARIO · TQ (Turnos Quirúrgicos) y N.O. (Notas Operatorias)\n' +
+         '-- Proyecto Supabase: ' + proj + '\n' +
+         '-- Ejecutar una vez en Supabase -> SQL Editor (con la cuenta del hospital)\n' +
+         '-- Las politicas dejan leer/guardar SOLO a usuarios con sesion iniciada (' + mail + ')\n' +
+         '-- Si prefieres entrar sin iniciar sesion, abajo hay dos politicas "anon" comentadas.\n\n' +
+         one(SCHEMAS.tq.table, SCHEMAS.tq.fields) + '\n' + one(SCHEMAS.no.table, SCHEMAS.no.fields) +
+         '\n-- Si ya habias creado las tablas antes de agregar el campo ESTADO, esto lo añade:\n' +
+         'alter table public.turnos_quirurgicos add column if not exists estado text;\n' +
+         '\n-- Si prefieres permitir acceso SIN iniciar sesion (menos seguro: datos de pacientes\n' +
+         '-- quedarían accesibles a quien tenga el enlace), descomenta estas dos politicas:\n' +
+         '-- create policy "anon_turnos" on public.turnos_quirurgicos for all to anon using (true) with check (true);\n' +
+         '-- create policy "anon_notas"   on public.notas_operatorias  for all to anon using (true) with check (true);\n';
+}
+function saveConfig(){
+  let u = $('#cfg-url').value.trim().replace(/\/+$/, '');
+  if(u && !/^https?:\/\//i.test(u)) u = 'https://' + u;
+  state.cfg.url = u;
+  state.cfg.key = $('#cfg-key').value.trim();
+  saveCfg(); setStatus();
+  toast('Configuración guardada.', 'ok');
+  if(sb.on()) testConn(true);
+}
+async function testConn(silent){
+  if(!sb.on()){ if(!silent) toast('Completa la URL del proyecto y la anon key de Supabase.','warn'); return; }
+  try{
+    for(const key of KEYS) await sb.req('/rest/v1/' + SCHEMAS[key].table + '?select=id&limit=1');
+    toast('Conexión correcta con Supabase. Tablas TQ y N.O. disponibles.','ok');
+  }catch(err){
+    toast('Supabase respondió: ' + esc(err.message) + '<br>Revisa URL, anon key y que hayas ejecutado el SQL.', 'bad');
+  }
+}
+async function checkTables(){
+  const note = $('#cfg-note'); if(!note) return;
+  if(!sb.on()){
+    note.innerHTML = 'Sin Supabase configurado: por ahora el programa trabaja solo en este navegador.';
+    return;
+  }
+  const faltan = [];
+  for(const k of KEYS){
+    try{ await sb.req('/rest/v1/' + SCHEMAS[k].table + '?select=id&limit=1'); }
+    catch(err){ if(/no existe/i.test(err.message)) faltan.push(SCHEMAS[k].short); }
+  }
+  if(faltan.length){
+    note.innerHTML = '<b>Faltan crear ' + (faltan.length > 1 ? 'las tablas' : 'la tabla') + ' ' + faltan.join(' y ') +
+      ' en el proyecto.</b> Abre “Ver SQL de las tablas”, cópialo y ejecútalo en Supabase → SQL Editor. ' +
+      'Mientras tanto todo se guarda en este navegador y se subirá al pulsar Sincronizar.';
+    toast('Faltan ' + faltan.join(' y ') + ' en Supabase: ejecuta el SQL (Configuración → Ver SQL de las tablas).','warn');
+  } else {
+    note.innerHTML = 'Tablas <b>TQ</b> y <b>N.O.</b> disponibles en el proyecto configurado.';
+  }
+}
+async function syncAll(silent){
+  if(!sb.on()){
+    if(!silent){ toast('Aún no hay Supabase configurado: todo se guarda en este navegador.','warn'); openPanel('config'); }
+    return;
+  }
+  try{
+    let pushed = 0, pulled = 0;
+    for(const k of KEYS){
+      const pend = state.data[k].filter(isPending);
+      if(pend.length){ await sb.upsert(SCHEMAS[k].table, pend); pend.forEach(r => r._sync = 'synced'); pushed += pend.length; saveData(k); }
+    }
+    for(const k of KEYS){
+      let remote = [];
+      try{ remote = await sb.pull(SCHEMAS[k].table); }
+      catch(err){ throw new Error(SCHEMAS[k].short + ': ' + err.message); }
+      const byId = {};
+      state.data[k].forEach(r => { byId[r.id] = r; });
+      remote.forEach(rr => {
+        const loc = byId[rr.id];
+        if(!loc){ state.data[k].push(Object.assign({_sync:'synced'}, rr)); pulled++; }
+        else if(!isPending(loc) && String(rr.updated_at || '') > String(loc.updated_at || '')){ Object.assign(loc, rr, {_sync:'synced'}); pulled++; }
+      });
+      saveData(k); renderPanel(k);
+    }
+    setStatus();
+    toast('Sincronización: ' + pushed + ' enviado(s), ' + pulled + ' recibido(s)/actualizado(s).','ok');
+  }catch(err){ toast('No se pudo sincronizar. ' + esc(err.message),'bad'); }
+}
+function wipeLocal(){
+  if(!confirm('¿Borrar TODOS los registros guardados en este navegador?\n\nNo borra lo que esté en Supabase. Si hay registros sin sincronizar, se perderán.')) return;
+  KEYS.forEach(k => { state.data[k] = []; saveData(k); renderPanel(k); });
+  toast('Datos locales borrados.', 'ok');
+}
+
+/* ==========================================================================
+   ACCESO (opcional)
+   ========================================================================== */
+async function hashPass(p){
+  const msg = 'ph::' + p;
+  if(window.crypto && crypto.subtle && crypto.subtle.digest){
+    try{
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+    }catch(e){ /* sigue al respaldo */ }
+  }
+  let h = 5381;
+  for(let i = 0; i < msg.length; i++) h = ((h << 5) + h + msg.charCodeAt(i)) >>> 0;
+  return 'weak' + h.toString(16);
+}
+function sessionOK(){ const s = lsGet('ph_session', null); return !!(s && s.exp > Date.now() && s.t); }
+function showGate(sub){
+  $('#gate-sub').textContent = sub || 'Ingresa tus credenciales para continuar.';
+  $('#gate').classList.add('open');
+  setTimeout(() => $('#gate-in-pass').focus(), 120);
+}
+function hideGate(){ $('#gate').classList.remove('open'); }
+async function gateSave(){
+  const on = $('#gate-on').checked, email = $('#gate-email').value.trim(), pass = $('#gate-pass').value;
+  let hash = state.cfg.gate.hash;
+  if(pass) hash = await hashPass(pass);
+  if(on && !hash && !(sb.on() && email)){
+    toast('Para activar el acceso indica una clave local, o un correo con Supabase configurado.','warn');
+    $('#gate-on').checked = false;
+    state.cfg.gate = {on:false, email:email, hash:hash};
+  } else {
+    state.cfg.gate = {on:on, email:email, hash:hash};
+    $('#gate-pass').value = '';
+  }
+  saveCfg(); gateState();
+  toast('Acceso actualizado.', 'ok');
+}
+function gateState(){
+  const g = state.cfg.gate;
+  $('#gate-state').innerHTML = g.on
+    ? ('Activado · ' + (sb.on() && g.email ? 'Supabase Auth (' + esc(g.email) + ')' : 'clave local de este navegador'))
+    : 'Desactivado: el programa abre directamente.';
+}
+async function sbLogin(email, pass){
+  const r = await fetch(state.cfg.url.replace(/\/+$/, '') + '/auth/v1/token?grant_type=password', {
+    method:'POST',
+    headers:{'apikey': state.cfg.key, 'Content-Type':'application/json'},
+    body: JSON.stringify({email: email, password: pass})
+  });
+  const d = await r.json().catch(() => ({}));
+  if(!r.ok) throw new Error(d.error_description || d.msg || d.error || 'Credenciales inválidas');
+  state.token = d.access_token;
+  lsSet('ph_session', {t: d.access_token, exp: Date.now() + 12 * 3600 * 1000, email: email});
+  return true;
+}
+async function gateEnter(){
+  const g = state.cfg.gate;
+  const email = $('#gate-in-email').value.trim(), pass = $('#gate-in-pass').value, err = $('#gate-err');
+  err.style.display = 'none';
+  try{
+    if(sb.on() && g.email){
+      if(norm(email) !== norm(g.email)) throw new Error('El correo no coincide con el registrado en la configuración.');
+      await sbLogin(email, pass);
+    } else {
+      const h = await hashPass(pass);
+      if(!g.hash || h !== g.hash) throw new Error('Clave incorrecta.');
+      lsSet('ph_session', {t:'local', exp: Date.now() + 12 * 3600 * 1000});
+    }
+    hideGate();
+    toast('Acceso concedido.', 'ok');
+    if(sb.on()) syncAll(true);
+  }catch(e){
+    err.style.display = 'block';
+    err.textContent = e.message || 'No se pudo validar el acceso.';
+  }
+}
+
+/* ==========================================================================
+   NAVEGACIÓN + ARRANQUE
+   ========================================================================== */
+function openPanel(p){
+  $$('nav.tabs button').forEach(b => b.classList.toggle('active', b.dataset.panel === p));
+  $$('section.panel').forEach(s => s.classList.toggle('visible', s.id === 'panel-' + p));
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function init(){
+  loadAll();
+  KEYS.forEach(k => { buildToolbar(k); renderPanel(k); });
+  fillCatSelect();
+  $('#cfg-url').value = state.cfg.url || '';
+  $('#cfg-key').value = state.cfg.key || '';
+  $('#gate-on').checked = !!state.cfg.gate.on;
+  $('#gate-email').value = state.cfg.gate.email || '';
+  $('#cfg-sql-pre').textContent = sqlScript();
+  $('#cfg-proyecto').textContent = sb.on() ? state.cfg.url : 'sin configurar (pega la URL y la anon key)';
+  gateState(); setStatus();
+  if(sb.on()) checkTables();
+  /* eventos */
+  $('#btn-sync').onclick   = () => syncAll(false);
+  $('#btn-config').onclick = () => openPanel('config');
+  $('#chip-status').onclick = () => openPanel('config');
+  $('#cat-save').onclick   = saveCat;
+  $('#cat-reload').onclick = loadCatToText;
+  $('#cfg-save').onclick   = saveConfig;
+  $('#cfg-test').onclick   = () => testConn(false);
+  $('#cfg-turnos').onclick = () => {
+    $('#cfg-url').value = SB_TURNOS.url;
+    $('#cfg-key').value = SB_TURNOS.key;
+    if(!$('#gate-email').value) $('#gate-email').value = SB_TURNOS.email;
+    toast('Datos del proyecto de turnos cargados. Pulsa <b>Guardar configuración</b> para usarlos.','ok');
+  };
+  $('#cfg-sql').onclick    = () => { const b = $('#cfg-sql-box'); b.style.display = (b.style.display === 'none' ? 'block' : 'none'); };
+  $('#cfg-sql-copy').onclick = () => {
+    const t = sqlScript();
+    if(navigator.clipboard) navigator.clipboard.writeText(t).then(() => toast('SQL copiado.','ok'), () => toast('No se pudo copiar. Descarga el .sql.','warn'));
+    else toast('Copia manualmente desde el recuadro.','warn');
+  };
+  $('#cfg-sql-dl').onclick = () => download('supabase-hospitalario.sql', new Blob([sqlScript()], {type:'text/plain;charset=utf-8'}));
+  $('#cfg-wipe').onclick   = wipeLocal;
+  $('#exp-xlsx').onclick   = () => exportWorkbook(false);
+  $('#exp-tpl').onclick    = () => exportWorkbook(true);
+  $('#exp-tq').onclick     = () => exportCsv('tq');
+  $('#exp-no').onclick     = () => exportCsv('no');
+  $('#gate-save').onclick  = gateSave;
+  $('#gate-enter').onclick = gateEnter;
+  $('#gate-in-pass').addEventListener('keydown', e => { if(e.key === 'Enter') gateEnter(); });
+  $('#form-save').onclick  = saveForm;
+  $('#imp-file').onchange  = async e => {
+    const f = e.target.files[0]; if(!f) return;
+    try{ await readImportFile(f); }
+    catch(err){ toast('No se pudo leer el archivo: ' + esc(err.message), 'bad'); }
+  };
+  $('#imp-sheet').onchange = e => {
+    try{ loadSheet(e.target.value); }
+    catch(err){ toast('No se pudo abrir esa hoja.','bad'); }
+  };
+  $('#imp-confirm').onclick = runImport;
+  $$('nav.tabs button').forEach(b => { b.onclick = () => openPanel(b.dataset.panel); });
+  if(!window.XLSX) toast('No se cargó el lector de Excel (probablemente sin conexión). La importación y exportación por CSV siguen disponibles.','warn');
+  if(state.cfg.gate.on && !sessionOK()) showGate();
+  else if(sb.on()) setTimeout(() => syncAll(true), 900);
+}
+init();
+</script>
+</body>
+</html>
