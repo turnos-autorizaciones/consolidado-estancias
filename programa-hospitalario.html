@@ -144,14 +144,20 @@ textarea{min-height:74px; resize:vertical}
 
 /* ============ TABLA ============ */
 .table-wrap{border:1px solid var(--line); border-radius:14px; overflow:auto; max-height:66vh; background:#fff}
-table{border-collapse:separate; border-spacing:0; width:100%; font-size:13px}
+table{border-collapse:separate; border-spacing:0; width:100%; font-size:12.5px}
 thead th{
   position:sticky; top:0; z-index:3; background:#5b3f7d; color:#fff; text-align:left;
-  padding:10px 11px; font-weight:700; font-size:11.5px; letter-spacing:.4px; white-space:nowrap;
+  padding:8px 9px; font-weight:700; font-size:11px; letter-spacing:.3px; white-space:nowrap;
   border-bottom:1px solid #4a3367;
 }
-thead th .col-letter{display:block; font-size:9.5px; font-weight:600; opacity:.75; letter-spacing:.6px}
-tbody td{padding:9px 11px; border-bottom:1px solid #f1ecf7; vertical-align:top; color:var(--ink)}
+thead th .col-letter{display:block; font-size:9px; font-weight:600; opacity:.75; letter-spacing:.5px}
+tbody td{padding:5px 8px; border-bottom:1px solid #f1ecf7; vertical-align:middle; color:var(--ink); line-height:1.3}
+/* compacto pero legible: una línea con puntos suspensivos; el texto completo sale al pasar el mouse */
+.clamp{display:block; max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.clamp2{
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  max-width:330px; line-height:1.3;
+}
 tbody tr:nth-child(even){background:#fcfaff}
 tbody tr:hover{background:#f7f1fd}
 tbody tr.pending{box-shadow:inset 3px 0 0 #e0a53c}
@@ -282,6 +288,8 @@ pre.code{
     content:attr(data-label); font-size:10.5px; font-weight:700; color:var(--ink-soft);
     text-transform:uppercase; letter-spacing:.4px; text-align:left; flex:0 0 42%;
   }
+  .table-wrap tbody td .clamp{white-space:normal; overflow:visible; max-width:none; text-align:right}
+  .table-wrap tbody td .clamp2{max-width:none; -webkit-line-clamp:unset; text-align:right}
   .table-wrap tbody td.sel-cell{flex-wrap:wrap}
   .table-wrap tbody td.sel-cell::before{flex:0 0 42%}
   .table-wrap tbody td.sel-cell select.cell-sel{flex:1 1 52%; min-width:0; max-width:56%}
@@ -330,7 +338,7 @@ pre.code{
   <section class="panel visible" id="panel-tq">
     <div class="card">
       <h2 class="card-title"><span class="badge-item">TQ</span> TURNOS QUIRÚRGICO</h2>
-      <p class="card-sub">Sube tu archivo Excel/CSV (hoja <b>TQ</b>) o captura cada turno quirúrgico. Los encabezados se conservan tal cual tu base: FECHA, HORA 24 H, DOCUMENTO, NOM_PACIENTE, PROCEDIMIENTO, CODIGO, EPS, INGRESO, TIPO_INGR, CIE10, AUTORIZACION, N° DE AUTORIZACION, OBSERVACION, AUTORIZADOR.</p>
+      <p class="card-sub">Sube tu reporte de turnos (Excel/CSV) o captura cada turno quirúrgico. El encabezado es el mismo de tu formato: FECHA, HORA 24 H, FOLIO DGH, N° ID DEL PACIENTE, EPS, CUPS, CUPS_DESCRIPCIÓN, PACIENTE, SERVICIO ACTUAL, CAMA, ESPECIALIDAD, PRIORIDAD, CIE10, AUTORIZADOR, ESTADO, OBSERVACIÓN, N° DE AUTORIZACIÓN.</p>
       <div class="stats" id="stats-tq"></div>
       <div class="toolbar" id="tool-tq"></div>
       <div class="table-wrap"><table id="table-tq"><thead id="head-tq"></thead><tbody id="body-tq"></tbody></table></div>
@@ -641,21 +649,23 @@ const SCHEMAS = {
     key:'tq', store:'ph_tq_v1', table:'turnos_quirurgicos',
     title:'TQ · TURNOS QUIRÚRGICO', short:'TQ',
     fields:[
-      {k:'fecha',           label:'FECHA',              type:'date',  req:true, w:112, dup:true},
-      {k:'hora',            label:'HORA 24 H',          type:'text',  w:96,  dup:true, ph:'6:25'},
-      {k:'documento',       label:'DOCUMENTO',          type:'text',  w:120, dup:true},
-      {k:'nom_paciente',    label:'NOM_PACIENTE',       type:'text',  req:true, w:190},
-      {k:'procedimiento',   label:'PROCEDIMIENTO',      type:'textarea', span:true, w:260, cat:'procedimiento'},
-      {k:'codigo',          label:'CODIGO',             type:'text',  w:104, cat:'cups'},
-      {k:'eps',             label:'EPS',                type:'text',  w:215, cat:'eps'},
-      {k:'ingreso',         label:'INGRESO',            type:'text',  w:110},
-      {k:'tipo_ingr',       label:'TIPO_INGR',          type:'text',  w:130, cat:'tipo_ingr'},
-      {k:'cie10',           label:'CIE10',              type:'text',  w:92,  cat:'cie10'},
-      {k:'autorizacion',    label:'AUTORIZACION',       type:'text',  w:132, cat:'autorizacion'},
-      {k:'num_autorizacion',label:'N° DE AUTORIZACION', type:'text',  w:150},
-      {k:'estado',          label:'ESTADO',             type:'select', w:168, cat:'estado'},
-      {k:'observacion',     label:'OBSERVACION',        type:'textarea', span:true, w:230},
-      {k:'autorizador',     label:'AUTORIZADOR',        type:'select', w:170, cat:'autorizador'}
+      {k:'fecha',           label:'FECHA',              type:'date',  req:true, w:108, dup:true},
+      {k:'hora',            label:'HORA 24 H',          type:'text',  w:92,  dup:true, ph:'11:53:37'},
+      {k:'folio_dgh',       label:'FOLIO DGH',          type:'text',  w:104, dup:true},
+      {k:'id_paciente',     label:'N° ID DEL PACIENTE', type:'text',  w:150},
+      {k:'eps',             label:'EPS',                type:'text',  w:210, cat:'eps'},
+      {k:'cups',            label:'CUPS',               type:'text',  w:96,  dup:true, cat:'cups'},
+      {k:'cups_descripcion',label:'CUPS_DESCRIPCIÓN',   type:'textarea', span:true, w:270},
+      {k:'paciente',        label:'PACIENTE',           type:'text',  req:true, w:200},
+      {k:'servicio_actual', label:'SERVICIO ACTUAL',    type:'text',  w:180, cat:'servicio'},
+      {k:'cama',            label:'CAMA',               type:'text',  w:88},
+      {k:'especialidad',    label:'ESPECIALIDAD',       type:'text',  w:180, cat:'especialidad'},
+      {k:'prioridad',       label:'PRIORIDAD',          type:'select', w:118, cat:'prioridad'},
+      {k:'cie10',           label:'CIE10',              type:'text',  w:230, cat:'cie10'},
+      {k:'autorizador',     label:'AUTORIZADOR',        type:'select', w:168, cat:'autorizador'},
+      {k:'estado',          label:'ESTADO',             type:'select', w:158, cat:'estado'},
+      {k:'observacion',     label:'OBSERVACIÓN',        type:'textarea', span:true, w:220},
+      {k:'num_autorizacion',label:'N° DE AUTORIZACIÓN', type:'text',  w:150}
     ]
   },
   no: {
@@ -808,26 +818,30 @@ function cleanForServer(r){
    ========================================================================== */
 const ALIASES = {
   tq: {
-    fecha:['FECHA','FECHACIRUGIA','FECHAPROCEDIMIENTO','FECHAINGRESO','FECHATURNO'],
-    hora:['HORA','HORA24H','HORACIRUGIA','HORAINGRESO'],
-    documento:['DOCUMENTO','DOCUMENTOPACIENTE','CEDULA','IDENTIFICACION','NODOCUMENTO','NUMERODOCUMENTO'],
-    nom_paciente:['NOMPACIENTE','NOMBREPACIENTE','NOMBRES','PACIENTE','NOMBRE'],
-    procedimiento:['PROCEDIMIENTO','PROCEDIMIENTOS','DESCRIPCIONPROCEDIMIENTO','NOMBREPROCEDIMIENTO'],
-    codigo:['CODIGO','COD','CODIGOPROCEDIMIENTO'],
+    fecha:['FECHA','FECHASOLICITUDTURNOQUIRURGICO','FECHASOLICITUDTURNOQUIRURGICA','FECHASOLICITUDTURNO','FECHASOLICITUD','FECHATURNO','FECHACIRUGIA'],
+    hora:['HORA','HORA24H'],
+    folio_dgh:['FOLIODGH','FOLIODGHSOLICITUDTURNO','FOLIOSOLICITUDTURNO','FOLIODC'],
+    id_paciente:['NIDDELPACIENTE','IDDELPACIENTE','NIDPACIENTE','NUMEROIDDELPACIENTE','DOCUMENTO','DOCUMENTOPACIENTE','CEDULA','IDENTIFICACION','NODOCUMENTO','NUMERODOCUMENTO'],
     eps:['EPS','ENTIDAD','ASEGURADORA'],
-    ingreso:['INGRESO','NUMEROINGRESO','NINGRESO'],
-    tipo_ingr:['TIPOINGR','TIPOINGRESO','TIPO','MODALIDAD'],
-    cie10:['CIE10','DIAGNOSTICO','DX','CODIGODIAGNOSTICO'],
-    autorizacion:['AUTORIZACION','ESTADOAUTORIZACION','AUTORIZADO'],
-    estado:['ESTADO','ESTADOTURNO','ESTADOTQ','ESTADOTURNOS'],
-    num_autorizacion:['NDEAUTORIZACION','NUMERODEAUTORIZACION','NOAUTORIZACION','NUMAUTORIZACION','NUMEROAUTORIZACION','NUMERO'],
+    cups:['CUPS','CODIGOCUPS','CODIGO','COD','CODIGOPROCEDIMIENTO'],
+    cups_descripcion:['DESCCUPS','DESCRIPCIONCUPS','CUPSDESCRIPCION','DESCRIPCIONPROCEDIMIENTO','NOMBREPROCEDIMIENTO','PROCEDIMIENTO','DESCRIPCION'],
+    paciente:['NOMBRECOMPLETO','PACIENTE','NOMBREPACIENTE','NOMPACIENTE','NOMBRES','NOMBRE'],
+    servicio_actual:['SERVICIOACTUALDELPACIENTE','SERVICIOACTUAL','SERVICIO'],
+    cama:['CAMAACTUAL','CAMA'],
+    especialidad:['ESPECIALIDADSOLICITATURNO','ESPECIALIDAD'],
+    prioridad:['PRIORIDADURGENCIA','CARACTERDELPROCEDIMIENTOPRIORIDAD','CARACTERDELPROCEDIMIENTO','PRIORIDAD','PRIORIDADATENCION'],
+    /* el CIE10 va con la columna Dx_Descr del reporte (trae el código + descripción);
+       la columna "Dx" numérica no se usa para no dejar solo un número suelto */
+    cie10:['DXDESCR','DXDESCRIPCION','DESCRIPCIONDX','DESCDX','DXPRINCIPAL','CIE10','DIAGNOSTICO','CODIGODIAGNOSTICO'],
+    autorizador:['AUTORIZADOR','RESPONSABLE','USUARIO','AUDITOR'],
+    estado:['ESTADO','ESTADOTURNO','ESTADOTQ','ESTADOTURNOS','ESTADOSOLICITUD'],
     observacion:['OBSERVACION','OBSERVACIONES','OBS','NOTA'],
-    autorizador:['AUTORIZADOR','RESPONSABLE','USUARIO','AUDITOR']
+    num_autorizacion:['NDEAUTORIZACION','NUMERODEAUTORIZACION','NOAUTORIZACION','NUMAUTORIZACION','NUMEROAUTORIZACION','NUMERO']
   },
   no: {
     fecha:['FECHA','FECHAPROCEDIMIENTO','FECHAINGRESO'],
     hora:['HORA','HORA24H'],
-    folio_dgh:['FOLIODGH','FOLIO','FOLIODC'],
+    folio_dgh:['FOLIODGH','HCNUMFOL','NUMFOL','FOLIO','FOLIODC'],
     id_paciente:['NIDDEPACIENTE','IDPACIENTE','NIDPACIENTE','NUMEROIDPACIENTE','IDENTIFICACION','DOCUMENTO'],
     eps:['EPS','ENTIDAD','ASEGURADORA'],
     cups:['CUPS','CODIGOCUPS','CODIGO'],
@@ -850,9 +864,12 @@ function autoMap(key, header){
   const al = ALIASES[key] || {};
   const fk = Object.keys(al).find(f => al[f].indexOf(hk) >= 0);
   if(fk) return fk;
-  const pref = Object.keys(al).find(f => al[f].some(a => a.length > 4 && (a.indexOf(hk) === 0 || hk.indexOf(a) === 0)));
+  /* solo alias largos y encabezados largos: evita que "FECHA DE NACIMIENTO" caiga en FECHA,
+     "SERVICIO GENERA EL TURNO" en SERVICIO ACTUAL, o "Dx" en la descripción del diagnóstico */
+  const largo = (a, h) => a.length >= 10 && h.length >= 8;
+  const pref = Object.keys(al).find(f => al[f].some(a => largo(a, hk) && (a.indexOf(hk) === 0 || hk.indexOf(a) === 0)));
   if(pref) return pref;
-  const contains = Object.keys(al).filter(f => al[f].some(a => a.length > 5 && hk.indexOf(a) > 0));
+  const contains = Object.keys(al).filter(f => al[f].some(a => largo(a, hk) && hk.indexOf(a) >= 0));
   return contains.length === 1 ? contains[0] : '';
 }
 function dupKey(key, rec){
@@ -939,13 +956,27 @@ function loadSheet(name, aoaGiven){
   imp.headerRow = bestScore >= 1 ? bestRow : 0;
   const hdr = aoa[imp.headerRow] || [];
   imp.headers = hdr.map((h, i) => ({i:i, text:String(h == null ? '' : h).trim() || ('Columna ' + letter(i))}));
-  const used = {};
-  imp.map = {};
+  /* candidatos por campo y, si dos columnas del archivo apuntan al mismo campo,
+     se queda la que de verdad trae datos (p. ej. "prioridad urgencia" vs "caracter del procedimiento Prioridad") */
+  const fill = col => {
+    let n = 0;
+    const hasta = Math.min(aoa.length, imp.headerRow + 1 + 40);
+    for(let r = imp.headerRow + 1; r < hasta; r++){
+      const v = aoa[r] ? aoa[r][col] : '';
+      if(v !== '' && v != null && String(v).trim() !== '') n++;
+    }
+    return n;
+  };
+  const cand = {};
   imp.headers.forEach(h => {
-    let fk = autoMap(imp.key, h.text);
-    if(fk && used[fk]) fk = '';
-    if(fk) used[fk] = true;
-    imp.map[h.i] = fk || '';
+    const fk = autoMap(imp.key, h.text);
+    if(fk){ (cand[fk] = cand[fk] || []).push(h.i); }
+  });
+  imp.map = {};
+  imp.headers.forEach(h => { imp.map[h.i] = ''; });
+  Object.keys(cand).forEach(fk => {
+    cand[fk].sort((a, b) => fill(b) - fill(a));
+    imp.map[cand[fk][0]] = fk;
   });
   renderMapping();
   const nRows = Math.max(0, aoa.length - imp.headerRow - 1);
@@ -1132,17 +1163,24 @@ function selectHtml(f, rec){
 }
 function cellHtml(f, v){
   if(f.k === 'autorizacion') return pillAut(v);
-  if(f.type === 'date') return fmtDate(v) ? esc(fmtDate(v)) : '<span style="color:#b6aec2">—</span>';
-  let s = esc(v);
-  if(f.type === 'textarea') s = s.replace(/\n/g, '<br>');
-  return s || '<span style="color:#b6aec2">—</span>';
+  if(f.type === 'date'){
+    const d = fmtDate(v);
+    return d ? '<span class="clamp" title="' + esc(d) + '">' + esc(d) + '</span>' : '<span style="color:#b6aec2">—</span>';
+  }
+  const raw = String(v == null ? '' : v);
+  if(!raw.trim()) return '<span style="color:#b6aec2">—</span>';
+  const tip = esc(raw.replace(/\s+/g, ' ').trim());
+  if(f.type === 'textarea'){
+    return '<span class="clamp2" title="' + tip + '">' + esc(raw).replace(/\n/g, '<br>') + '</span>';
+  }
+  return '<span class="clamp" title="' + tip + '">' + esc(raw) + '</span>';
 }
 
 /* ---------------- render ---------------- */
 function renderStats(key){
   const all = state.data[key], hoy = all.filter(isHoy).length, pen = all.filter(isPending).length;
   const third = key === 'tq'
-    ? {v: all.filter(verified).length, l:'Verificados'}
+    ? {v: all.filter(r => /^AUTORIZADO$/i.test(String(r.estado || '').trim())).length, l:'Autorizados'}
     : {v: all.filter(r => /URGEN/i.test(String(r.prioridad || ''))).length, l:'Urgencias'};
   $('#stats-' + key).innerHTML =
     '<div class="stat"><b>' + all.length + '</b><span>Registros ' + esc(SCHEMAS[key].short) + '</span></div>' +
@@ -1441,8 +1479,10 @@ function sqlScript(){
          '-- Las politicas dejan leer/guardar SOLO a usuarios con sesion iniciada (' + mail + ')\n' +
          '-- Si prefieres entrar sin iniciar sesion, abajo hay dos politicas "anon" comentadas.\n\n' +
          one(SCHEMAS.tq.table, SCHEMAS.tq.fields) + '\n' + one(SCHEMAS.no.table, SCHEMAS.no.fields) +
-         '\n-- Si ya habias creado las tablas antes de agregar el campo ESTADO, esto lo añade:\n' +
-         'alter table public.turnos_quirurgicos add column if not exists estado text;\n' +
+         '\n-- Actualizacion de la tabla TQ al formato del reporte (por si ya la habias creado):\n' +
+         ['folio_dgh','id_paciente','cups','cups_descripcion','paciente','servicio_actual','cama','especialidad','prioridad','estado']
+            .map(c => 'alter table public.' + SCHEMAS.tq.table + ' add column if not exists ' + c + ' text;')
+            .join('\n') + '\n' +
          '\n-- Si prefieres permitir acceso SIN iniciar sesion (menos seguro: datos de pacientes\n' +
          '-- quedarían accesibles a quien tenga el enlace), descomenta estas dos politicas:\n' +
          '-- create policy "anon_turnos" on public.turnos_quirurgicos for all to anon using (true) with check (true);\n' +

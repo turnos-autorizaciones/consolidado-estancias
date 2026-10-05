@@ -19,23 +19,33 @@ create table if not exists public.turnos_quirurgicos (
   updated_at timestamptz default now(),
   fecha date,
   hora text,
-  documento text,
-  nom_paciente text,
-  procedimiento text,
-  codigo text,
+  folio_dgh text,
+  id_paciente text,
   eps text,
-  ingreso text,
-  tipo_ingr text,
+  cups text,
+  cups_descripcion text,
+  paciente text,
+  servicio_actual text,
+  cama text,
+  especialidad text,
+  prioridad text,
   cie10 text,
-  autorizacion text,
-  num_autorizacion text,
+  autorizador text,
   estado text,
   observacion text,
-  autorizador text
+  num_autorizacion text
 );
 
--- Por si la tabla ya existía antes de agregar el campo ESTADO:
-alter table public.turnos_quirurgicos add column if not exists estado text;
+-- Si la tabla ya existía con el formato anterior, esto agrega las columnas que faltan:
+alter table public.turnos_quirurgicos add column if not exists folio_dgh text;
+alter table public.turnos_quirurgicos add column if not exists id_paciente text;
+alter table public.turnos_quirurgicos add column if not exists cups text;
+alter table public.turnos_quirurgicos add column if not exists cups_descripcion text;
+alter table public.turnos_quirurgicos add column if not exists paciente text;
+alter table public.turnos_quirurgicos add column if not exists servicio_actual text;
+alter table public.turnos_quirurgicos add column if not exists cama text;
+alter table public.turnos_quirurgicos add column if not exists especialidad text;
+alter table public.turnos_quirurgicos add column if not exists prioridad text;
 
 alter table public.turnos_quirurgicos enable row level security;
 drop policy if exists "acceso_turnos_quirurgicos" on public.turnos_quirurgicos;
