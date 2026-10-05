@@ -1107,6 +1107,23 @@ function exportCsv(key){
 }
 
 /* ---------------- lectura / filtros ---------------- */
+/* Convierte "HORA 24 H" a segundos del día para poder ordenar por hora real.
+   Acepta '11:53:37', '6:25', '06:25', '7:30 a. m.', '2:15 p. m.', '14:30'.
+   Devuelve null si el texto no contiene una hora reconocible.
+   Se necesita porque la hora viene como TEXTO: comparada como texto,
+   '11:53' quedaría antes que '6:25' y el orden del día sería incorrecto. */
+function horaSeg(v){
+  const t = String(v == null ? '' : v).toLowerCase().replace(/\s+/g, ' ').trim();
+  if(!t) return null;
+  const m = /(\d{1,2})\s*[:.]\s*(\d{1,2})(?:\s*[:.]\s*(\d{1,2}))?/.exec(t);
+  if(!m) return null;
+  let h = +m[1], mi = +m[2], sg = m[3] ? +m[3] : 0;
+  if(mi > 59 || sg > 59) return null;
+  if(/p\s*\.?\s*m/.test(t) && h < 12) h += 12;   /* 2:15 p. m. -> 14:15 */
+  if(/a\s*\.?\s*m/.test(t) && h === 12) h = 0;   /* 12:30 a. m. -> 00:30 */
+  if(h > 23) return null;
+  return h * 3600 + mi * 60 + sg;
+}
 function rowsOf(key){
   const s = SCHEMAS[key], u = state.ui[key], q = norm(u.q);
   const list = state.data[key].filter(r => {
@@ -1116,10 +1133,20 @@ function rowsOf(key){
     if(!q) return true;
     return s.fields.some(f => norm(r[f.k]).indexOf(q) >= 0);
   });
+  /* Orden: de MENOR a MAYOR por fecha y hora (el más antiguo primero). */
   list.sort((a, b) => {
-    const f = String(b.fecha || '').localeCompare(String(a.fecha || ''));
+    /* 1) FECHA. Viene como 'YYYY-MM-DD', así que el orden alfabético ya es cronológico. */
+    const f = String(a.fecha || '').localeCompare(String(b.fecha || ''));
     if(f) return f;
-    return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+    /* 2) HORA dentro del mismo día, comparada como tiempo real (no como texto). */
+    const ha = horaSeg(a.hora), hb = horaSeg(b.hora);
+    if(ha === null && hb !== null) return 1;      /* sin hora válida: al final del día */
+    if(hb === null && ha !== null) return -1;
+    if(ha !== null && hb !== null && ha !== hb) return ha - hb;
+    /* 3) Desempates: hora como texto y, por último, el orden de creación. */
+    const ht = String(a.hora || '').localeCompare(String(b.hora || ''));
+    if(ht) return ht;
+    return String(a.created_at || '').localeCompare(String(b.created_at || ''));
   });
   return list;
 }
