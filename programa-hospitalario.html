@@ -158,10 +158,14 @@ textarea{min-height:74px; resize:vertical}
 /* registros: 10px · encabezado: 11px (definido en thead th, mas abajo) */
 table{border-collapse:separate; border-spacing:0; width:100%; font-size:10px}
 thead th{
-  position:sticky; top:0; z-index:3; background:#5b3f7d; color:#fff; text-align:left;
+  position:sticky; top:0; z-index:3; background:#5b3f7d; color:#fff; text-align:center;
   padding:8px 9px; font-weight:700; font-size:11px; letter-spacing:.3px; white-space:nowrap;
   border-bottom:1px solid #4a3367;
 }
+/* columnas cortas: ocupan solo lo que necesitan (el ancho sobrante va a las de texto largo) */
+th.tight{width:1px}
+/* campos de texto largo que deben verse completos (CIE10, AC_EVENTO) */
+.wrapfull{display:block; white-space:normal; overflow-wrap:anywhere}
 tbody td{padding:5px 8px; border-bottom:1px solid #f1ecf7; vertical-align:middle; color:var(--ink); line-height:1.3}
 /* compacto pero legible: una línea con puntos suspensivos; el texto completo sale al pasar el mouse */
 .clamp{display:block; max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
@@ -188,7 +192,7 @@ td.actions button.del:hover{background:var(--danger-bg); border-color:#f3c9c9}
 .pill.muted{background:#efeaf6; color:#4a3d59; border-color:#e0d6ee}
 /* desplegable dentro de la tabla (columna AUTORIZADOR) */
 select.cell-sel{
-  width:100%; min-width:145px; padding:5px 7px; font-size:10px; font-weight:600;
+  width:100%; min-width:118px; padding:5px 7px; font-size:10px; font-weight:600;
   border:1px solid #ddd0ec; border-radius:9px; background:linear-gradient(#fff,#faf7fd); color:var(--ink);
   cursor:pointer;
 }
@@ -280,7 +284,7 @@ pre.code{
   table{font-size:11.5px}
   thead th{font-size:12px; padding:9px 11px}
   tbody td{padding:8px 11px}
-  select.cell-sel{font-size:11.5px; padding:6px 9px; min-width:160px}
+  select.cell-sel{font-size:11.5px; padding:6px 9px; min-width:128px}
   td.actions button svg{width:18px; height:18px}
   .clamp{max-width:340px}
   .clamp2{max-width:540px}
@@ -292,7 +296,7 @@ pre.code{
   table{font-size:12.5px}
   thead th{font-size:13px; padding:10px 13px}
   tbody td{padding:10px 13px}
-  select.cell-sel{font-size:12.5px; padding:7px 10px; min-width:175px}
+  select.cell-sel{font-size:12.5px; padding:7px 10px; min-width:138px}
   td.actions button svg{width:20px; height:20px}
   .clamp{max-width:450px}
   .clamp2{max-width:700px}
@@ -343,6 +347,7 @@ pre.code{
   }
   .table-wrap tbody td .clamp{white-space:normal; overflow:visible; max-width:none; text-align:right}
   .table-wrap tbody td .clamp2{max-width:none; -webkit-line-clamp:unset; text-align:right}
+  .table-wrap tbody td .wrapfull{text-align:right}
   .table-wrap tbody td.sel-cell{flex-wrap:wrap}
   .table-wrap tbody td.sel-cell::before{flex:0 0 42%}
   .table-wrap tbody td.sel-cell select.cell-sel{flex:1 1 52%; min-width:0; max-width:56%}
@@ -361,7 +366,7 @@ pre.code{
     </div>
     <div>
       <h1>Programa Hospitalario</h1>
-      <p>TQ · Turnos Quirúrgicos &nbsp;|&nbsp; N.O. · Notas Operatorias <span class="ver">v. 06-10-2026 · ancho completo</span></p>
+      <p>TQ · Turnos Quirúrgicos &nbsp;|&nbsp; N.O. · Notas Operatorias <span class="ver">v. 06-10-2026b · ancho + centrado + CIE10 completo</span></p>
     </div>
     <div class="hdr-actions">
       <button class="chip" id="chip-status" title="Estado del almacenamiento">
@@ -703,45 +708,46 @@ const SCHEMAS = {
     key:'tq', store:'ph_tq_v1', table:'turnos_quirurgicos',
     title:'TQ · TURNOS QUIRÚRGICO', short:'TQ',
     fields:[
-      {k:'fecha',           label:'FECHA',              type:'date',  req:true, w:108, dup:true},
-      {k:'hora',            label:'HORA 24 H',          type:'text',  w:92,  dup:true, ph:'11:53:37'},
-      {k:'ingreso',         label:'INGRESO',            type:'text',  w:100},
-      {k:'folio_dgh',       label:'FOLIO DGH',          type:'text',  w:104, dup:true},
-      {k:'id_paciente',     label:'N° ID DEL PACIENTE', type:'text',  w:150},
+      /* tight: la columna ocupa solo lo que necesita · full: el texto se ve completo (sin recortar) */
+      {k:'fecha',           label:'FECHA',              type:'date',  req:true, w:108, dup:true, tight:true},
+      {k:'hora',            label:'HORA 24 H',          type:'text',  w:92,  dup:true, ph:'11:53:37', tight:true},
+      {k:'ingreso',         label:'INGRESO',            type:'text',  w:100, tight:true},
+      {k:'folio_dgh',       label:'FOLIO DGH',          type:'text',  w:104, dup:true, tight:true},
+      {k:'id_paciente',     label:'N° ID DEL PACIENTE', type:'text',  w:150, tight:true},
       {k:'eps',             label:'EPS',                type:'text',  w:210, cat:'eps'},
-      {k:'cups',            label:'CUPS',               type:'text',  w:96,  dup:true, cat:'cups'},
+      {k:'cups',            label:'CUPS',               type:'text',  w:96,  dup:true, cat:'cups', tight:true},
       {k:'cups_descripcion',label:'CUPS_DESCRIPCIÓN',   type:'textarea', span:true, w:270},
       {k:'paciente',        label:'PACIENTE',           type:'text',  req:true, w:200},
       {k:'servicio_actual', label:'SERVICIO ACTUAL',    type:'text',  w:180, cat:'servicio'},
-      {k:'cama',            label:'CAMA',               type:'text',  w:88},
+      {k:'cama',            label:'CAMA',               type:'text',  w:88, tight:true},
       {k:'especialidad',    label:'ESPECIALIDAD',       type:'text',  w:180, cat:'especialidad'},
-      {k:'prioridad',       label:'PRIORIDAD',          type:'select', w:118, cat:'prioridad'},
-      {k:'cie10',           label:'CIE10',              type:'text',  w:230, cat:'cie10'},
-      {k:'autorizador',     label:'AUTORIZADOR',        type:'select', w:168, cat:'autorizador'},
-      {k:'estado',          label:'ESTADO',             type:'select', w:158, cat:'estado'},
-      {k:'observacion',     label:'OBSERVACIÓN',        type:'textarea', span:true, w:220},
-      {k:'num_autorizacion',label:'N° DE AUTORIZACIÓN', type:'text',  w:150}
+      {k:'prioridad',       label:'PRIORIDAD',          type:'select', w:118, cat:'prioridad', tight:true},
+      {k:'cie10',           label:'CIE10',              type:'text',  w:260, cat:'cie10', full:true},
+      {k:'autorizador',     label:'AUTORIZADOR',        type:'select', w:168, cat:'autorizador', tight:true},
+      {k:'estado',          label:'ESTADO',             type:'select', w:158, cat:'estado', tight:true},
+      {k:'observacion',     label:'OBSERVACIÓN',        type:'textarea', span:true, w:220, tight:true},
+      {k:'num_autorizacion',label:'N° DE AUTORIZACIÓN', type:'text',  w:150, tight:true}
     ]
   },
   no: {
     key:'no', store:'ph_no_v1', table:'notas_operatorias',
     title:'N.O. · NOTAS OPERATORIAS', short:'N.O.',
     fields:[
-      {k:'fecha',          label:'FECHA',              type:'date',  req:true, w:112, dup:true},
-      {k:'hora',           label:'HORA 24 H',          type:'text',  w:96,  dup:true, ph:'6:25'},
-      {k:'folio_dgh',      label:'FOLIO DGH',          type:'text',  w:120, dup:true},
-      {k:'id_paciente',    label:'N° ID DE PACIENTE',  type:'text',  w:140},
+      {k:'fecha',          label:'FECHA',              type:'date',  req:true, w:112, dup:true, tight:true},
+      {k:'hora',           label:'HORA 24 H',          type:'text',  w:96,  dup:true, ph:'6:25', tight:true},
+      {k:'folio_dgh',      label:'FOLIO DGH',          type:'text',  w:120, dup:true, tight:true},
+      {k:'id_paciente',    label:'N° ID DE PACIENTE',  type:'text',  w:140, tight:true},
       {k:'eps',            label:'EPS',                type:'text',  w:200, cat:'eps'},
-      {k:'cups',           label:'CUPS',               type:'text',  w:104, cat:'cups'},
+      {k:'cups',           label:'CUPS',               type:'text',  w:104, cat:'cups', tight:true},
       {k:'cups_descripcion',label:'CUPS_DESCRIPCION',  type:'textarea', span:true, w:250},
       {k:'paciente',       label:'PACIENTE',           type:'text',  req:true, w:190},
       {k:'servicio_actual',label:'SERVICIO ACTUAL',    type:'text',  w:180, cat:'servicio'},
-      {k:'cama',           label:'CAMA',               type:'text',  w:104},
+      {k:'cama',           label:'CAMA',               type:'text',  w:104, tight:true},
       {k:'especialidad',   label:'ESPECIALIDAD',       type:'text',  w:190, cat:'especialidad'},
-      {k:'prioridad',      label:'PRIORIDAD',          type:'text',  w:112, cat:'prioridad'},
-      {k:'ac_evento',      label:'AC_EVENTO',          type:'textarea', span:true, w:260, cat:'cie10'},
-      {k:'autorizador',    label:'AUTORIZADOR',        type:'select', w:170, cat:'autorizador'},
-      {k:'observacion',    label:'OBSERVACION',        type:'textarea', span:true, w:230}
+      {k:'prioridad',      label:'PRIORIDAD',          type:'text',  w:112, cat:'prioridad', tight:true},
+      {k:'ac_evento',      label:'AC_EVENTO',          type:'textarea', span:true, w:260, cat:'cie10', full:true},
+      {k:'autorizador',    label:'AUTORIZADOR',        type:'select', w:170, cat:'autorizador', tight:true},
+      {k:'observacion',    label:'OBSERVACION',        type:'textarea', span:true, w:230, tight:true}
     ]
   }
 };
@@ -1300,6 +1306,10 @@ function cellHtml(f, v){
   const raw = String(v == null ? '' : v);
   if(!raw.trim()) return '<span style="color:#b6aec2">—</span>';
   const tip = esc(raw.replace(/\s+/g, ' ').trim());
+  /* campos marcados como completos (CIE10, AC_EVENTO): se ven íntegros, sin recortar */
+  if(f.full){
+    return '<span class="wrapfull" title="' + tip + '">' + esc(raw).replace(/\n/g, '<br>') + '</span>';
+  }
   if(f.type === 'textarea'){
     return '<span class="clamp2" title="' + tip + '">' + esc(raw).replace(/\n/g, '<br>') + '</span>';
   }
@@ -1320,12 +1330,15 @@ function renderStats(key){
 }
 function renderHead(key){
   const s = SCHEMAS[key];
-  /* N° de registro al inicio (igual que en el Excel exportado) y ACCIONES al FINAL */
-  $('#head-' + key).innerHTML = '<tr><th style="width:52px; text-align:right">N°</th>' +
+  /* Encabezados centrados. N° de registro al inicio (igual que en el Excel exportado) y ACCIONES al FINAL.
+     Las columnas cortas llevan width:1px (ocupan solo lo necesario) y el ancho sobrante
+     se reparte entre las columnas de texto largo; así ninguna columna queda con espacio de más. */
+  $('#head-' + key).innerHTML = '<tr><th class="tight" style="width:52px">N°</th>' +
     s.fields.map(f =>
-      '<th style="min-width:' + (f.w || 120) + 'px">' + esc(f.label) + '</th>'
+      '<th' + (f.tight ? ' class="tight" style="width:1px"' : ' style="min-width:' + (f.w || 120) + 'px"') + '>' +
+      esc(f.label) + '</th>'
     ).join('') +
-    '<th style="width:84px">ACCIONES</th></tr>';
+    '<th class="tight" style="width:84px">ACCIONES</th></tr>';
 }
 /* Iconos de las acciones de cada fila (reemplazan al texto "Editar" / "Borrar") */
 const ICON_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
