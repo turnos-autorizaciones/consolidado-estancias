@@ -368,7 +368,7 @@ pre.code{
     </div>
     <div>
       <h1>Programa Hospitalario</h1>
-      <p>TQ · Turnos Quirúrgicos &nbsp;|&nbsp; N.O. · Notas Operatorias <span class="ver">v. 06-10-2026d · anchos corregidos</span></p>
+      <p>TQ · Turnos Quirúrgicos &nbsp;|&nbsp; N.O. · Notas Operatorias <span class="ver">v. 06-10-2026e · columna DOCUMENTO</span></p>
     </div>
     <div class="hdr-actions">
       <button class="chip" id="chip-status" title="Estado del almacenamiento">
@@ -398,7 +398,7 @@ pre.code{
   <section class="panel visible" id="panel-tq">
     <div class="card">
       <h2 class="card-title"><span class="badge-item">TQ</span> TURNOS QUIRÚRGICO</h2>
-      <p class="card-sub">Sube tu reporte de turnos (Excel/CSV) o captura cada turno quirúrgico. El encabezado es el mismo de tu formato: FECHA, HORA 24 H, INGRESO, FOLIO DGH, N° ID DEL PACIENTE, EPS, CUPS, CUPS_DESCRIPCIÓN, PACIENTE, SERVICIO ACTUAL, CAMA, ESPECIALIDAD, PRIORIDAD, CIE10, AUTORIZADOR, ESTADO, OBSERVACIÓN, N° DE AUTORIZACIÓN.</p>
+      <p class="card-sub">Sube tu reporte de turnos (Excel/CSV) o captura cada turno quirúrgico. El encabezado es el mismo de tu formato: FECHA, HORA 24 H, INGRESO, FOLIO DGH, DOCUMENTO, EPS, CUPS, CUPS_DESCRIPCIÓN, PACIENTE, SERVICIO ACTUAL, CAMA, ESPECIALIDAD, PRIORIDAD, CIE10, AUTORIZADOR, ESTADO, OBSERVACIÓN, N° DE AUTORIZACIÓN.</p>
       <div class="stats" id="stats-tq"></div>
       <div class="toolbar" id="tool-tq"></div>
       <div class="table-wrap"><table id="table-tq"><thead id="head-tq"></thead><tbody id="body-tq"></tbody></table></div>
@@ -715,7 +715,7 @@ const SCHEMAS = {
       {k:'hora',            label:'HORA 24 H',          type:'text',  w:92,  dup:true, ph:'11:53:37', tight:true},
       {k:'ingreso',         label:'INGRESO',            type:'text',  w:100, tight:true},
       {k:'folio_dgh',       label:'FOLIO DGH',          type:'text',  w:104, dup:true, tight:true},
-      {k:'id_paciente',     label:'N° ID DEL PACIENTE', type:'text',  w:150, tight:true},
+      {k:'id_paciente',     label:'DOCUMENTO',          type:'text',  w:150, tight:true},
       /* w = ancho de la columna (el texto largo se envuelve y se ve completo) */
       {k:'eps',             label:'EPS',                type:'text',  w:190, cat:'eps', full:true},
       {k:'cups',            label:'CUPS',               type:'text',  w:96,  dup:true, cat:'cups', tight:true},
