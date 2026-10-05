@@ -162,8 +162,10 @@ thead th{
   padding:8px 9px; font-weight:700; font-size:11px; letter-spacing:.3px; white-space:nowrap;
   border-bottom:1px solid #4a3367;
 }
-/* columnas cortas: ocupan solo lo que necesitan (el ancho sobrante va a las de texto largo) */
-th.tight{width:1px}
+/* columnas cortas: ocupan solo lo que necesitan (el ancho sobrante va a las de texto largo).
+   El encabezado puede partirse en dos líneas: si no, títulos como "FOLIO DGH" o
+   "N° DE AUTORIZACIÓN" -más anchos que los datos- fijarían el ancho de la columna. */
+th.tight{width:1px; white-space:normal; overflow-wrap:break-word}
 /* Campos de texto largo que deben verse completos (EPS, ESPECIALIDAD, CIE10…).
    OJO: overflow-wrap:break-word (NO "anywhere") para que el navegador no crea que la
    columna puede medir casi nada y parta las palabras letra por letra. */
@@ -368,7 +370,7 @@ pre.code{
     </div>
     <div>
       <h1>Programa Hospitalario</h1>
-      <p>TQ · Turnos Quirúrgicos &nbsp;|&nbsp; N.O. · Notas Operatorias <span class="ver">v. 06-10-2026e · columna DOCUMENTO</span></p>
+      <p>TQ · Turnos Quirúrgicos &nbsp;|&nbsp; N.O. · Notas Operatorias <span class="ver">v. 06-10-2026g · encabezados en dos líneas</span></p>
     </div>
     <div class="hdr-actions">
       <button class="chip" id="chip-status" title="Estado del almacenamiento">
@@ -714,7 +716,7 @@ const SCHEMAS = {
       {k:'fecha',           label:'FECHA',              type:'date',  req:true, w:108, dup:true, tight:true},
       {k:'hora',            label:'HORA 24 H',          type:'text',  w:92,  dup:true, ph:'11:53:37', tight:true},
       {k:'ingreso',         label:'INGRESO',            type:'text',  w:100, tight:true},
-      {k:'folio_dgh',       label:'FOLIO DGH',          type:'text',  w:104, dup:true, tight:true},
+      {k:'folio_dgh',       label:'FOLIO DGH',          lines:['FOLIO','DGH'], type:'text',  w:104, dup:true, tight:true},
       {k:'id_paciente',     label:'DOCUMENTO',          type:'text',  w:150, tight:true},
       /* w = ancho de la columna (el texto largo se envuelve y se ve completo) */
       {k:'eps',             label:'EPS',                type:'text',  w:190, cat:'eps', full:true},
@@ -729,7 +731,7 @@ const SCHEMAS = {
       {k:'autorizador',     label:'AUTORIZADOR',        type:'select', w:168, cat:'autorizador', tight:true},
       {k:'estado',          label:'ESTADO',             type:'select', w:158, cat:'estado', tight:true},
       {k:'observacion',     label:'OBSERVACIÓN',        type:'textarea', span:true, w:220, tight:true},
-      {k:'num_autorizacion',label:'N° DE AUTORIZACIÓN', type:'text',  w:150, tight:true}
+      {k:'num_autorizacion',label:'N° DE AUTORIZACIÓN', lines:['N° DE','AUTORIZACIÓN'], type:'text',  w:150, tight:true}
     ]
   },
   no: {
@@ -738,7 +740,7 @@ const SCHEMAS = {
     fields:[
       {k:'fecha',          label:'FECHA',              type:'date',  req:true, w:112, dup:true, tight:true},
       {k:'hora',           label:'HORA 24 H',          type:'text',  w:96,  dup:true, ph:'6:25', tight:true},
-      {k:'folio_dgh',      label:'FOLIO DGH',          type:'text',  w:120, dup:true, tight:true},
+      {k:'folio_dgh',      label:'FOLIO DGH',          lines:['FOLIO','DGH'], type:'text',  w:120, dup:true, tight:true},
       {k:'id_paciente',    label:'N° ID DE PACIENTE',  type:'text',  w:140, tight:true},
       {k:'eps',            label:'EPS',                type:'text',  w:190, cat:'eps', full:true},
       {k:'cups',           label:'CUPS',               type:'text',  w:104, cat:'cups', tight:true},
@@ -1344,7 +1346,9 @@ function renderHead(key){
          · 3) sin ancho -> es la columna que absorbe el espacio sobrante (texto largo) */
       const st = f.tight ? ' class="tight" style="width:1px"'
                : (f.w ? ' style="width:' + f.w + 'px"' : '');
-      return '<th' + st + '>' + esc(f.label) + '</th>';
+      /* f.lines = encabezado en dos líneas (p. ej. FOLIO / DGH) para que la columna quede angosta */
+      const titulo = f.lines ? f.lines.map(esc).join('<br>') : esc(f.label);
+      return '<th' + st + '>' + titulo + '</th>';
     }).join('') +
     '<th class="tight" style="width:84px">ACCIONES</th></tr>';
 }
