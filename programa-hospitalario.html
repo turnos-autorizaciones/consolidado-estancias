@@ -492,6 +492,7 @@ pre.code{
         </div>
       </div>
       <div class="hint" id="imp-info" style="margin-top:10px">Elige un archivo <b>.xlsx</b>, <b>.xls</b> o <b>.csv</b>. Se detecta automáticamente la fila de encabezados.</div>
+      <p class="hint" style="margin-top:6px">Si un registro ya existe se <b>actualiza</b> (no se duplica) y el programa <b>respeta lo editado a mano</b>: <b>AUTORIZADOR</b>, <b>ESTADO</b>, <b>OBSERVACIÓN</b> y <b>N° DE AUTORIZACIÓN</b> no se sobrescriben, y una celda vacía del archivo no borra el dato que ya está guardado.</p>
       <div id="imp-mapping-box" style="display:none">
         <h4 style="margin:16px 0 4px; font-size:13.5px">Correspondencia de encabezados</h4>
         <p class="hint">Revisa que cada encabezado del archivo apunte al campo correcto. Lo que dejes en <i>Ignorar</i> no se importa.</p>
@@ -879,6 +880,24 @@ function autoMap(key, header){
 function dupKey(key, rec){
   return SCHEMAS[key].fields.filter(f => f.dup).map(f => norm(rec[f.k])).join('|');
 }
+/* Campos que se trabajan A MANO en la tabla: una importacion nunca los sobrescribe.
+   Si hay que cambiarlos de nuevo, se hace en la tabla o en el formulario. */
+const CAMPOS_MANUALES = ['autorizador', 'estado', 'observacion', 'num_autorizacion'];
+
+/* Valores del Excel que SI pueden aplicarse sobre un registro que YA existe.
+   Deja fuera:
+     - los campos manuales (se conserva lo que hay en el programa)
+     - las celdas vacias (no borran lo que ya esta guardado)
+   Solo se usa al ACTUALIZAR: al crear un registro nuevo, el archivo manda. */
+function cambiosImportados(rec){
+  const out = {};
+  Object.keys(rec).forEach(fk => {
+    if(CAMPOS_MANUALES.indexOf(fk) >= 0) return;
+    if(String(rec[fk] == null ? '' : rec[fk]).trim() === '') return;
+    out[fk] = rec[fk];
+  });
+  return out;
+}
 /* --- CSV nativo (respaldo si no hay conexión para SheetJS) --- */
 function parseCsvRows(txt, delim){
   const rows = []; let row = [], cell = '', q = false;
@@ -1024,7 +1043,7 @@ async function runImport(){
   Object.keys(imp.map).forEach(i => { if(imp.map[i]) idx[imp.map[i]] = +i; });
   const mapped = Object.keys(idx);
   if(!mapped.length) return;
-  let nuevos = 0, act = 0, vacios = 0;
+  let nuevos = 0, act = 0, vacios = 0, sinCambios = 0;
   const byDup = {};
   state.data[key].forEach(r => { const d = dupKey(key, r); if(d) byDup[d] = r; });
   const toPush = [];
@@ -1042,7 +1061,11 @@ async function runImport(){
     const d = dupKey(key, rec);
     if(d && byDup[d]){
       const prev = byDup[d];
-      Object.assign(prev, rec, {updated_at: nowISO(), _sync:'pending'});
+      /* Solo se aplican los valores que si pueden pisar: se respetan los campos
+         editados a mano y una celda vacia del archivo no borra lo que ya hay. */
+      const cambios = cambiosImportados(rec);
+      if(!Object.keys(cambios).length){ sinCambios++; return; }   /* se deja el registro intacto */
+      Object.assign(prev, cambios, {updated_at: nowISO(), _sync:'pending'});
       act++; toPush.push(prev);
     } else {
       const r = Object.assign({id: uid(), created_at: nowISO(), updated_at: nowISO(), _sync:'pending'}, rec);
@@ -1054,6 +1077,7 @@ async function runImport(){
   saveData(key); renderPanel(key);
   closeModal('modal-import');
   toast('Importación en <b>' + esc(s.short) + '</b>: ' + nuevos + ' nuevos, ' + act + ' actualizados' +
+        (sinCambios ? ', ' + sinCambios + ' sin cambios (se respetó lo editado a mano)' : '') +
         (vacios ? ', ' + vacios + ' fila(s) vacía(s) omitida(s)' : '') + '.', 'ok');
   if(sb.on() && toPush.length){
     try{
