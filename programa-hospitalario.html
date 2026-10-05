@@ -161,6 +161,8 @@ tbody td{padding:5px 8px; border-bottom:1px solid #f1ecf7; vertical-align:middle
 tbody tr:nth-child(even){background:#fcfaff}
 tbody tr:hover{background:#f7f1fd}
 tbody tr.pending{box-shadow:inset 3px 0 0 #e0a53c}
+/* columna N° (número de registro) */
+td.num{color:var(--ink-soft); text-align:right; font-weight:600; font-variant-numeric:tabular-nums}
 td.actions{white-space:nowrap}
 td.actions button{all:unset; cursor:pointer; padding:5px; border-radius:8px; color:var(--purple-deep); border:1px solid transparent; display:inline-flex; align-items:center; justify-content:center; line-height:0}
 td.actions button + button{margin-left:3px}
@@ -1245,8 +1247,8 @@ function renderStats(key){
 }
 function renderHead(key){
   const s = SCHEMAS[key];
-  /* ACCIONES va al FINAL, junto a la última columna (N° DE AUTORIZACIÓN) */
-  $('#head-' + key).innerHTML = '<tr>' +
+  /* N° de registro al inicio (igual que en el Excel exportado) y ACCIONES al FINAL */
+  $('#head-' + key).innerHTML = '<tr><th style="width:52px; text-align:right">N°</th>' +
     s.fields.map(f =>
       '<th style="min-width:' + (f.w || 120) + 'px">' + esc(f.label) + '</th>'
     ).join('') +
@@ -1260,11 +1262,15 @@ function renderBody(key){
   const shown = all.slice(0, u.limit);
   const tb = $('#body-' + key);
   if(!all.length){
-    tb.innerHTML = '<tr><td colspan="' + (s.fields.length + 1) + '"><div class="empty"><b>Sin registros ' + esc(s.short) + '</b>' +
+    tb.innerHTML = '<tr><td colspan="' + (s.fields.length + 2) + '"><div class="empty"><b>Sin registros ' + esc(s.short) + '</b>' +
       'Sube tu archivo Excel/CSV o crea el primer registro.</div></td></tr>';
   } else {
-    tb.innerHTML = shown.map(r =>
+    /* i + 1 = número de registro (1, 2, 3...). Se numera en el mismo orden en que
+       se muestran y se exportan los registros, así que "Mostrando 300 de 528"
+       significa que el último número visible es el 300. */
+    tb.innerHTML = shown.map((r, i) =>
       '<tr class="' + (isPending(r) ? 'pending' : '') + '" data-id="' + esc(r.id) + '">' +
+      '<td class="num" data-label="N°">' + (i + 1) + '</td>' +
       s.fields.map(f => '<td' + (f.type === 'select' ? ' class="sel-cell"' : '') + ' data-label="' + esc(f.label) + '">' +
         (f.type === 'select' ? selectHtml(f, r) : cellHtml(f, r[f.k])) + '</td>').join('') +
       '<td class="actions" data-label="ACCIONES">' +      /* la última columna de la fila */
