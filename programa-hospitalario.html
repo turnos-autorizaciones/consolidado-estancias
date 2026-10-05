@@ -157,10 +157,15 @@ textarea{min-height:74px; resize:vertical}
 }
 /* registros: 10px · encabezado: 11px (definido en thead th, mas abajo) */
 table{border-collapse:separate; border-spacing:0; width:100%; font-size:10px}
+/* la fila y el grupo del encabezado pintan el morado: así no se ve el fondo blanco
+   en las rendijas de fracción de píxel que el navegador deja entre celdas */
+thead, thead tr{background:#5b3f7d}
 thead th{
   position:sticky; top:0; z-index:3; background:#5b3f7d; color:#fff; text-align:center;
   padding:8px 9px; font-weight:700; font-size:11px; letter-spacing:.3px; white-space:nowrap;
   border-bottom:1px solid #4a3367;
+  /* cubre 1px a cada lado por si queda rendija entre columnas */
+  box-shadow:-1px 0 0 0 #5b3f7d, 1px 0 0 0 #5b3f7d;
 }
 /* columnas cortas: ocupan solo lo que necesitan (el ancho sobrante va a las de texto largo).
    El encabezado puede partirse en dos líneas: si no, títulos como "FOLIO DGH" o
@@ -370,7 +375,7 @@ pre.code{
     </div>
     <div>
       <h1>Programa Hospitalario</h1>
-      <p>TQ · Turnos Quirúrgicos &nbsp;|&nbsp; N.O. · Notas Operatorias <span class="ver">v. 06-10-2026g · encabezados en dos líneas</span></p>
+      <p>TQ · Turnos Quirúrgicos &nbsp;|&nbsp; N.O. · Notas Operatorias <span class="ver">v. 06-10-2026h · líneas blancas del encabezado corregidas</span></p>
     </div>
     <div class="hdr-actions">
       <button class="chip" id="chip-status" title="Estado del almacenamiento">
