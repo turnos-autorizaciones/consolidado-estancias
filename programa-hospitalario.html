@@ -338,7 +338,7 @@ pre.code{
   <section class="panel visible" id="panel-tq">
     <div class="card">
       <h2 class="card-title"><span class="badge-item">TQ</span> TURNOS QUIRÚRGICO</h2>
-      <p class="card-sub">Sube tu reporte de turnos (Excel/CSV) o captura cada turno quirúrgico. El encabezado es el mismo de tu formato: FECHA, HORA 24 H, FOLIO DGH, N° ID DEL PACIENTE, EPS, CUPS, CUPS_DESCRIPCIÓN, PACIENTE, SERVICIO ACTUAL, CAMA, ESPECIALIDAD, PRIORIDAD, CIE10, AUTORIZADOR, ESTADO, OBSERVACIÓN, N° DE AUTORIZACIÓN.</p>
+      <p class="card-sub">Sube tu reporte de turnos (Excel/CSV) o captura cada turno quirúrgico. El encabezado es el mismo de tu formato: FECHA, HORA 24 H, INGRESO, FOLIO DGH, N° ID DEL PACIENTE, EPS, CUPS, CUPS_DESCRIPCIÓN, PACIENTE, SERVICIO ACTUAL, CAMA, ESPECIALIDAD, PRIORIDAD, CIE10, AUTORIZADOR, ESTADO, OBSERVACIÓN, N° DE AUTORIZACIÓN.</p>
       <div class="stats" id="stats-tq"></div>
       <div class="toolbar" id="tool-tq"></div>
       <div class="table-wrap"><table id="table-tq"><thead id="head-tq"></thead><tbody id="body-tq"></tbody></table></div>
@@ -651,6 +651,7 @@ const SCHEMAS = {
     fields:[
       {k:'fecha',           label:'FECHA',              type:'date',  req:true, w:108, dup:true},
       {k:'hora',            label:'HORA 24 H',          type:'text',  w:92,  dup:true, ph:'11:53:37'},
+      {k:'ingreso',         label:'INGRESO',            type:'text',  w:100},
       {k:'folio_dgh',       label:'FOLIO DGH',          type:'text',  w:104, dup:true},
       {k:'id_paciente',     label:'N° ID DEL PACIENTE', type:'text',  w:150},
       {k:'eps',             label:'EPS',                type:'text',  w:210, cat:'eps'},
@@ -820,6 +821,7 @@ const ALIASES = {
   tq: {
     fecha:['FECHA','FECHASOLICITUDTURNOQUIRURGICO','FECHASOLICITUDTURNOQUIRURGICA','FECHASOLICITUDTURNO','FECHASOLICITUD','FECHATURNO','FECHACIRUGIA'],
     hora:['HORA','HORA24H'],
+    ingreso:['NINGRESO','INGRESO','NUMEROINGRESO','NOINGRESO','NUMINGRESO','INGRESOHOSPITALARIO'],
     folio_dgh:['FOLIODGH','FOLIODGHSOLICITUDTURNO','FOLIOSOLICITUDTURNO','FOLIODC'],
     id_paciente:['NIDDELPACIENTE','IDDELPACIENTE','NIDPACIENTE','NUMEROIDDELPACIENTE','DOCUMENTO','DOCUMENTOPACIENTE','CEDULA','IDENTIFICACION','NODOCUMENTO','NUMERODOCUMENTO'],
     eps:['EPS','ENTIDAD','ASEGURADORA'],
