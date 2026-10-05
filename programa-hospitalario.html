@@ -1245,10 +1245,12 @@ function renderStats(key){
 }
 function renderHead(key){
   const s = SCHEMAS[key];
-  $('#head-' + key).innerHTML = '<tr><th style="width:84px">ACCIONES</th>' +
+  /* ACCIONES va al FINAL, junto a la última columna (N° DE AUTORIZACIÓN) */
+  $('#head-' + key).innerHTML = '<tr>' +
     s.fields.map(f =>
       '<th style="min-width:' + (f.w || 120) + 'px">' + esc(f.label) + '</th>'
-    ).join('') + '</tr>';
+    ).join('') +
+    '<th style="width:84px">ACCIONES</th></tr>';
 }
 /* Iconos de las acciones de cada fila (reemplazan al texto "Editar" / "Borrar") */
 const ICON_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
@@ -1263,12 +1265,12 @@ function renderBody(key){
   } else {
     tb.innerHTML = shown.map(r =>
       '<tr class="' + (isPending(r) ? 'pending' : '') + '" data-id="' + esc(r.id) + '">' +
-      '<td class="actions" data-label="ACCIONES">' +
+      s.fields.map(f => '<td' + (f.type === 'select' ? ' class="sel-cell"' : '') + ' data-label="' + esc(f.label) + '">' +
+        (f.type === 'select' ? selectHtml(f, r) : cellHtml(f, r[f.k])) + '</td>').join('') +
+      '<td class="actions" data-label="ACCIONES">' +      /* la última columna de la fila */
         '<button class="edit" data-id="' + esc(r.id) + '" title="Editar" aria-label="Editar registro">' + ICON_EDIT + '</button>' +
         '<button class="del" data-id="' + esc(r.id) + '" title="Borrar" aria-label="Borrar registro">' + ICON_DEL + '</button>' +
       '</td>' +
-      s.fields.map(f => '<td' + (f.type === 'select' ? ' class="sel-cell"' : '') + ' data-label="' + esc(f.label) + '">' +
-        (f.type === 'select' ? selectHtml(f, r) : cellHtml(f, r[f.k])) + '</td>').join('') +
       '</tr>'
     ).join('');
   }
