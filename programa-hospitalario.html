@@ -347,7 +347,7 @@ pre.code{
   }
   .table-wrap tbody td .clamp{white-space:normal; overflow:visible; max-width:none; text-align:right}
   .table-wrap tbody td .clamp2{max-width:none; -webkit-line-clamp:unset; text-align:right}
-  .table-wrap tbody td .wrapfull{text-align:right}
+  .table-wrap tbody td .wrapfull{text-align:right; max-width:none !important}
   .table-wrap tbody td.sel-cell{flex-wrap:wrap}
   .table-wrap tbody td.sel-cell::before{flex:0 0 42%}
   .table-wrap tbody td.sel-cell select.cell-sel{flex:1 1 52%; min-width:0; max-width:56%}
@@ -366,7 +366,7 @@ pre.code{
     </div>
     <div>
       <h1>Programa Hospitalario</h1>
-      <p>TQ · Turnos Quirúrgicos &nbsp;|&nbsp; N.O. · Notas Operatorias <span class="ver">v. 06-10-2026b · ancho + centrado + CIE10 completo</span></p>
+      <p>TQ · Turnos Quirúrgicos &nbsp;|&nbsp; N.O. · Notas Operatorias <span class="ver">v. 06-10-2026c · EPS y ESPECIALIDAD completas</span></p>
     </div>
     <div class="hdr-actions">
       <button class="chip" id="chip-status" title="Estado del almacenamiento">
@@ -714,13 +714,14 @@ const SCHEMAS = {
       {k:'ingreso',         label:'INGRESO',            type:'text',  w:100, tight:true},
       {k:'folio_dgh',       label:'FOLIO DGH',          type:'text',  w:104, dup:true, tight:true},
       {k:'id_paciente',     label:'N° ID DEL PACIENTE', type:'text',  w:150, tight:true},
-      {k:'eps',             label:'EPS',                type:'text',  w:210, cat:'eps'},
+      /* maxw: ancho máximo de la celda; el texto se envuelve y se ve completo aunque ocupe 2-3 líneas */
+      {k:'eps',             label:'EPS',                type:'text',  w:210, cat:'eps', tight:true, full:true, maxw:190},
       {k:'cups',            label:'CUPS',               type:'text',  w:96,  dup:true, cat:'cups', tight:true},
       {k:'cups_descripcion',label:'CUPS_DESCRIPCIÓN',   type:'textarea', span:true, w:270},
-      {k:'paciente',        label:'PACIENTE',           type:'text',  req:true, w:200},
-      {k:'servicio_actual', label:'SERVICIO ACTUAL',    type:'text',  w:180, cat:'servicio'},
+      {k:'paciente',        label:'PACIENTE',           type:'text',  req:true, w:200, tight:true, full:true, maxw:230},
+      {k:'servicio_actual', label:'SERVICIO ACTUAL',    type:'text',  w:180, cat:'servicio', tight:true, full:true, maxw:185},
       {k:'cama',            label:'CAMA',               type:'text',  w:88, tight:true},
-      {k:'especialidad',    label:'ESPECIALIDAD',       type:'text',  w:180, cat:'especialidad'},
+      {k:'especialidad',    label:'ESPECIALIDAD',       type:'text',  w:180, cat:'especialidad', tight:true, full:true, maxw:180},
       {k:'prioridad',       label:'PRIORIDAD',          type:'select', w:118, cat:'prioridad', tight:true},
       {k:'cie10',           label:'CIE10',              type:'text',  w:260, cat:'cie10', full:true},
       {k:'autorizador',     label:'AUTORIZADOR',        type:'select', w:168, cat:'autorizador', tight:true},
@@ -737,13 +738,13 @@ const SCHEMAS = {
       {k:'hora',           label:'HORA 24 H',          type:'text',  w:96,  dup:true, ph:'6:25', tight:true},
       {k:'folio_dgh',      label:'FOLIO DGH',          type:'text',  w:120, dup:true, tight:true},
       {k:'id_paciente',    label:'N° ID DE PACIENTE',  type:'text',  w:140, tight:true},
-      {k:'eps',            label:'EPS',                type:'text',  w:200, cat:'eps'},
+      {k:'eps',            label:'EPS',                type:'text',  w:200, cat:'eps', tight:true, full:true, maxw:190},
       {k:'cups',           label:'CUPS',               type:'text',  w:104, cat:'cups', tight:true},
       {k:'cups_descripcion',label:'CUPS_DESCRIPCION',  type:'textarea', span:true, w:250},
-      {k:'paciente',       label:'PACIENTE',           type:'text',  req:true, w:190},
-      {k:'servicio_actual',label:'SERVICIO ACTUAL',    type:'text',  w:180, cat:'servicio'},
+      {k:'paciente',       label:'PACIENTE',           type:'text',  req:true, w:190, tight:true, full:true, maxw:230},
+      {k:'servicio_actual',label:'SERVICIO ACTUAL',    type:'text',  w:180, cat:'servicio', tight:true, full:true, maxw:185},
       {k:'cama',           label:'CAMA',               type:'text',  w:104, tight:true},
-      {k:'especialidad',   label:'ESPECIALIDAD',       type:'text',  w:190, cat:'especialidad'},
+      {k:'especialidad',   label:'ESPECIALIDAD',       type:'text',  w:190, cat:'especialidad', tight:true, full:true, maxw:180},
       {k:'prioridad',      label:'PRIORIDAD',          type:'text',  w:112, cat:'prioridad', tight:true},
       {k:'ac_evento',      label:'AC_EVENTO',          type:'textarea', span:true, w:260, cat:'cie10', full:true},
       {k:'autorizador',    label:'AUTORIZADOR',        type:'select', w:170, cat:'autorizador', tight:true},
@@ -1308,7 +1309,9 @@ function cellHtml(f, v){
   const tip = esc(raw.replace(/\s+/g, ' ').trim());
   /* campos marcados como completos (CIE10, AC_EVENTO): se ven íntegros, sin recortar */
   if(f.full){
-    return '<span class="wrapfull" title="' + tip + '">' + esc(raw).replace(/\n/g, '<br>') + '</span>';
+    /* maxw: la celda no crece más de ese ancho, el texto se envuelve y se lee completo */
+    const cap = f.maxw ? ' style="max-width:' + f.maxw + 'px"' : '';
+    return '<span class="wrapfull"' + cap + ' title="' + tip + '">' + esc(raw).replace(/\n/g, '<br>') + '</span>';
   }
   if(f.type === 'textarea'){
     return '<span class="clamp2" title="' + tip + '">' + esc(raw).replace(/\n/g, '<br>') + '</span>';
