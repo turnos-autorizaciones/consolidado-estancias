@@ -64,6 +64,7 @@ header.app::after{
 @keyframes pulse{0%,100%{transform:scale(1);opacity:.95}50%{transform:scale(1.08);opacity:1}}
 .brand h1{font-size:21px; margin:0; font-weight:700; letter-spacing:.2px}
 .brand p{margin:2px 0 0; font-size:13px; color:rgba(255,255,255,.92)}
+.brand p .ver{opacity:.72; font-size:11px; letter-spacing:.3px}
 .hdr-actions{margin-left:auto; display:flex; gap:8px; align-items:center; flex-wrap:wrap}
 .chip{
   display:inline-flex; align-items:center; gap:7px; padding:6px 11px; border-radius:999px;
@@ -273,16 +274,41 @@ pre.code{
 .gate-card p{margin:0 0 16px; font-size:13px; color:var(--ink-soft)}
 
 /* ============ PANTALLAS GRANDES ============ */
-/* en monitores anchos se aprovecha el espacio para mostrar más texto en la tabla */
+/* En monitores grandes la tabla crece de verdad: letra, alto de fila y ancho de
+   celda. En un portatil se mantiene compacta, exactamente como estaba. */
 @media (min-width:1500px){
-  .clamp{max-width:330px}
-  .clamp2{max-width:520px}
+  table{font-size:11.5px}
+  thead th{font-size:12px; padding:9px 11px}
+  tbody td{padding:8px 11px}
+  select.cell-sel{font-size:11.5px; padding:6px 9px; min-width:160px}
+  td.actions button svg{width:18px; height:18px}
+  .clamp{max-width:340px}
+  .clamp2{max-width:540px}
   .search{min-width:320px}
+  .stat b{font-size:24px}
+  .card-sub{font-size:13.5px; max-width:1400px}
 }
-@media (min-width:2000px){
-  .clamp{max-width:430px}
-  .clamp2{max-width:680px}
+@media (min-width:1900px){
+  table{font-size:12.5px}
+  thead th{font-size:13px; padding:10px 13px}
+  tbody td{padding:10px 13px}
+  select.cell-sel{font-size:12.5px; padding:7px 10px; min-width:175px}
+  td.actions button svg{width:20px; height:20px}
+  .clamp{max-width:450px}
+  .clamp2{max-width:700px}
   .search{min-width:420px}
+  .stat b{font-size:27px}
+  .card-sub{font-size:14px; max-width:1600px}
+  .btn{font-size:13.5px; padding:11px 16px}
+  .field-inline{font-size:13px}
+}
+@media (min-width:2400px){
+  table{font-size:13.5px}
+  thead th{font-size:14px; padding:11px 15px}
+  tbody td{padding:11px 15px}
+  .clamp{max-width:540px}
+  .clamp2{max-width:840px}
+  .stat b{font-size:30px}
 }
 
 /* ============ RESPONSIVE ============ */
@@ -335,7 +361,7 @@ pre.code{
     </div>
     <div>
       <h1>Programa Hospitalario</h1>
-      <p>TQ · Turnos Quirúrgicos &nbsp;|&nbsp; N.O. · Notas Operatorias</p>
+      <p>TQ · Turnos Quirúrgicos &nbsp;|&nbsp; N.O. · Notas Operatorias <span class="ver">v. 06-10-2026 · ancho completo</span></p>
     </div>
     <div class="hdr-actions">
       <button class="chip" id="chip-status" title="Estado del almacenamiento">
@@ -803,6 +829,9 @@ const sb = {
         showGate('La sesión de Supabase venció. Vuelve a ingresar.');
         throw new Error('Sesión vencida. Vuelve a ingresar.');
       }
+      if(/All object keys must match/i.test(String(txt))){
+        throw new Error('Los registros a enviar no tenían las mismas columnas. Actualiza la página (Ctrl+F5) y sincroniza otra vez.');
+      }
       if(code === 'PGRST205' || /Could not find the table/i.test(String(txt))){
         throw new Error('La tabla aún no existe en Supabase. Ejecuta el script SQL (Configuración → Ver SQL de las tablas).');
       }
@@ -823,10 +852,12 @@ const sb = {
   },
   async upsert(table, rows){
     if(!rows.length) return 0;
+    /* misma lista de columnas en TODAS las filas del envío */
+    const payload = rows.map(r => cleanForServer(table, r));
     await this.req('/rest/v1/' + table, {
       method:'POST',
       headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
-      body: JSON.stringify(rows.map(cleanForServer))
+      body: JSON.stringify(payload)
     });
     return rows.length;
   },
@@ -837,9 +868,28 @@ const sb = {
     return ids.length;
   }
 };
-function cleanForServer(r){
-  const o = {};
-  Object.keys(r).forEach(k => { if(k.charAt(0) !== '_' && k !== 'localOnly') o[k] = r[k]; });
+/* Arma la fila para Supabase SIEMPRE con la misma lista de columnas.
+   PostgREST exige que todos los objetos de un envío tengan las mismas claves
+   (si no: PGRST102 "All object keys must match"). Antes se enviaban las claves
+   que tuviera cada registro, y al mezclar registros importados con otros
+   antiguos o traídos del servidor el envío fallaba. */
+function schemaDeTabla(table){
+  const k = Object.keys(SCHEMAS).find(x => SCHEMAS[x].table === table);
+  return k ? SCHEMAS[k] : null;
+}
+function cleanForServer(table, r){
+  r = r || {};
+  const s = schemaDeTabla(table);
+  const o = {id: r.id || uid(), created_at: r.created_at || nowISO(), updated_at: r.updated_at || nowISO()};
+  if(!s){
+    Object.keys(r).forEach(k => { if(k.charAt(0) !== '_' && k !== 'localOnly') o[k] = r[k]; });
+    return o;
+  }
+  s.fields.forEach(f => {
+    const v = String(r[f.k] == null ? '' : r[f.k]).replace(/\s+$/, '');
+    /* los vacíos van como null (una fecha vacía "" daría error en Postgres) */
+    o[f.k] = (v === '' || (f.type === 'date' && !/^\d{4}-\d{2}-\d{2}/.test(v))) ? null : v;
+  });
   return o;
 }
 /* ==========================================================================
