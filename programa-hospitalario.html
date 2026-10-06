@@ -38,8 +38,14 @@ body::before{
     radial-gradient(900px 420px at 8% -10%, rgba(244,125,163,.20), transparent 60%),
     radial-gradient(760px 420px at 100% 0%, rgba(134,98,169,.20), transparent 62%);
 }
-/* el contenido ocupa todo el ancho disponible (antes estaba topado a 1500px) */
-.wrap{position:relative; z-index:1; width:100%; max-width:none; margin:0 auto; padding:0 18px 60px; padding:0 var(--pad) 60px}
+/* el contenido ocupa todo el ancho disponible (antes estaba topado a 1500px) y
+   todo el alto: el cuerpo es una columna y el contenido se estira hasta abajo */
+body{display:flex; flex-direction:column; min-height:100vh}
+.wrap{
+  position:relative; z-index:1; width:100%; max-width:none; margin:0 auto;
+  flex:1 1 auto; display:flex; flex-direction:column; min-height:0;
+  padding:0 18px 10px; padding:0 var(--pad) 10px;
+}
 
 /* ============ ENCABEZADO ============ */
 header.app{
@@ -152,8 +158,8 @@ textarea{min-height:74px; resize:vertical}
 .table-wrap{
   border:1px solid var(--line); border-radius:14px; overflow:auto; background:#fff;
   min-height:380px;
-  max-height:calc(100vh - 320px);                 /* respaldo para navegadores viejos */
-  max-height:max(460px, calc(100vh - 320px));
+  max-height:calc(100vh - 260px);                 /* respaldo para navegadores viejos */
+  max-height:max(460px, calc(100vh - 260px));
 }
 /* registros: 10px · encabezado: 11px (definido en thead th, mas abajo) */
 table{border-collapse:separate; border-spacing:0; width:100%; font-size:10px}
@@ -328,6 +334,42 @@ pre.code{
   .clamp2{max-width:840px}
   .stat b{font-size:30px}
 }
+@media (min-width:3000px){
+  table{font-size:15px}
+  thead th{font-size:15.5px; padding:12px 17px}
+  tbody td{padding:12px 17px}
+  .clamp{max-width:640px}
+  .clamp2{max-width:980px}
+  .stat b{font-size:33px}
+}
+
+/* ============ EL PANEL Y LA TABLA LLENAN LA PANTALLA ============ */
+/* En monitores con altura de sobra, el panel activo, su tarjeta y el cuadro de registros
+   se estiran hasta el borde inferior: así no queda ninguna franja vacía debajo.
+   OJO: solo se aplica cuando HAY altura suficiente (min-height:860px); en portátiles
+   bajos (p. ej. 1366x768) el cuadro conserva su alto cómodo y la página se desplaza. */
+@media (min-width:761px) and (min-height:860px){
+  /* solo las pestañas con tabla (TQ y N.O.); Listas y Configuración quedan igual */
+  #panel-tq.visible, #panel-no.visible{display:flex; flex-direction:column; flex:1 1 auto; min-height:0}
+  #panel-tq.visible > .card, #panel-no.visible > .card{flex:1 1 auto; display:flex; flex-direction:column; min-height:0}
+  #panel-tq.visible .table-wrap, #panel-no.visible .table-wrap{flex:1 1 auto; max-height:none; min-height:240px}
+}
+
+/* ============ PANTALLAS BAJAS (portátiles) ============ */
+/* Se compacta todo lo que está ARRIBA de la tabla (títulos, tarjetas y filtros) para
+   que el cuadro de registros gane espacio y no quede hueco abajo */
+@media (max-height:860px){
+  header.app{padding:14px var(--pad) 12px}
+  .brand p{font-size:11.5px}          /* se mantiene visible: aquí va la marca de versión */
+  .card-sub{display:none}             /* el texto explicativo se oculta para ganar alto */
+  .stats{gap:8px; margin-bottom:10px}
+  .stat{padding:8px 12px}
+  .stat b{font-size:19px}
+  .stat span{font-size:10.5px}
+  .toolbar{gap:7px; margin-bottom:8px}
+  .search{padding:7px 10px}
+  .row-info{margin-top:6px}
+}
 
 /* ============ RESPONSIVE ============ */
 @media (max-width:980px){
@@ -380,7 +422,7 @@ pre.code{
     </div>
     <div>
       <h1>Programa Hospitalario</h1>
-      <p>TQ · Turnos Quirúrgicos &nbsp;|&nbsp; N.O. · Notas Operatorias <span class="ver">v. 06-10-2026i · bloques de paciente con color</span></p>
+      <p>TQ · Turnos Quirúrgicos &nbsp;|&nbsp; N.O. · Notas Operatorias <span class="ver">v. 06-10-2026k · sin espacio sobrante abajo</span></p>
     </div>
     <div class="hdr-actions">
       <button class="chip" id="chip-status" title="Estado del almacenamiento">
