@@ -183,6 +183,11 @@ tbody td{padding:5px 8px; border-bottom:1px solid #f1ecf7; vertical-align:middle
   max-width:330px; line-height:1.3;
 }
 tbody tr:nth-child(even){background:#fcfaff}
+/* Pacientes con VARIOS procedimientos: todas sus filas consecutivas se pintan del
+   mismo color suave, y cada bloque alterna (lila / rosa) para diferenciarse de los
+   demás pacientes. Los pacientes con un solo procedimiento quedan sin color. */
+tbody tr.grp-a{background:#f1e7fa}
+tbody tr.grp-b{background:#fdeaf3}
 tbody tr:hover{background:#f7f1fd}
 tbody tr.pending{box-shadow:inset 3px 0 0 #e0a53c}
 /* columna N° (número de registro) */
@@ -375,7 +380,7 @@ pre.code{
     </div>
     <div>
       <h1>Programa Hospitalario</h1>
-      <p>TQ · Turnos Quirúrgicos &nbsp;|&nbsp; N.O. · Notas Operatorias <span class="ver">v. 06-10-2026h · líneas blancas del encabezado corregidas</span></p>
+      <p>TQ · Turnos Quirúrgicos &nbsp;|&nbsp; N.O. · Notas Operatorias <span class="ver">v. 06-10-2026i · bloques de paciente con color</span></p>
     </div>
     <div class="hdr-actions">
       <button class="chip" id="chip-status" title="Estado del almacenamiento">
@@ -1371,8 +1376,28 @@ function renderBody(key){
     /* i + 1 = número de registro (1, 2, 3...). Se numera en el mismo orden en que
        se muestran y se exportan los registros, así que "Mostrando 300 de 528"
        significa que el último número visible es el 300. */
+    /* Bloques por paciente/turno: si un paciente tiene varios procedimientos, sus filas
+       consecutivas comparten color y los bloques alternan (grp-a / grp-b). */
+    const claveGrupo = r => [String(r.fecha || ''), String(r.folio_dgh || ''),
+                             String(r.id_paciente || ''), norm(r.paciente || '')].join('|');
+    const claseGrupo = {};
+    let nBloque = 0;
+    let bloque = null;
+    shown.forEach((r, i) => {
+      const k = claveGrupo(r);
+      if(!bloque || bloque.k !== k) bloque = {k:k, filas:[]};
+      bloque.filas.push(i);
+      /* se cierra el bloque cuando cambia la clave */
+      const siguiente = shown[i + 1];
+      if(!siguiente || claveGrupo(siguiente) !== k){
+        if(bloque.filas.length > 1){
+          const c = (nBloque++ % 2 === 0) ? 'grp-a' : 'grp-b';
+          bloque.filas.forEach(f => { claseGrupo[f] = c; });
+        }
+      }
+    });
     tb.innerHTML = shown.map((r, i) =>
-      '<tr class="' + (isPending(r) ? 'pending' : '') + '" data-id="' + esc(r.id) + '">' +
+      '<tr class="' + [isPending(r) ? 'pending' : '', claseGrupo[i] || ''].filter(Boolean).join(' ') + '" data-id="' + esc(r.id) + '">' +
       '<td class="num" data-label="N°">' + (i + 1) + '</td>' +
       s.fields.map(f => '<td' + (f.type === 'select' ? ' class="sel-cell"' : '') + ' data-label="' + esc(f.label) + '">' +
         (f.type === 'select' ? selectHtml(f, r) : cellHtml(f, r[f.k])) + '</td>').join('') +
