@@ -351,6 +351,13 @@ button.link:hover{color:#01407e}
 #stats-no .stat:nth-child(3)::before{background:#1b70c3}
 #stats-no .stat:nth-child(4)::before{background:#f2b400}
 
+/* sello de trazabilidad dentro de la ventana del registro */
+.stamp{
+  margin:0 0 13px; padding:9px 12px; border-radius:11px; font-size:12px;
+  background:var(--azul-claro); border:1px solid #cfe2f4; color:var(--ink-soft);
+}
+.stamp b{color:var(--ink)}
+
 /* ============ IDENTIDAD DEL HOSPITAL ============ */
 /* el logo va sobre una placa blanca: así se lee bien sobre el azul */
 .logo{
@@ -508,7 +515,7 @@ button.link:hover{color:#01407e}
     <div>
       <p class="inst">Hospital Universitario San José · E.S.E. Popayán</p>
       <h1>Programa Hospitalario</h1>
-      <p>TQ · Turnos Quirúrgicos &nbsp;|&nbsp; N.O. · Notas Operatorias <span class="ver">v. 07-10-2026o · colores de la propuesta</span></p>
+      <p>TQ · Turnos Quirúrgicos &nbsp;|&nbsp; N.O. · Notas Operatorias <span class="ver">v. 07-10-2026p · autorizador y trazabilidad</span></p>
     </div>
     <div class="hdr-actions">
       <button class="chip" id="chip-status" title="Estado del almacenamiento">
@@ -675,6 +682,7 @@ button.link:hover{color:#01407e}
       <button data-close="modal-form" title="Cerrar">×</button>
     </header>
     <div class="body">
+      <div class="stamp" id="form-stamp"></div>
       <div class="grid" id="form-grid"></div>
       <div class="err" id="form-err" style="display:none"></div>
     </div>
@@ -909,7 +917,12 @@ const SCHEMAS = {
       /* CONTROL DEL TURNO EN FÍSICO: guarda la FECHA en que el servicio entregó el turno
          quirúrgico en papel. Vacío = todavía no ha llegado. Se marca con un clic (sello)
          o en lote con las casillas de selección. */
-      {k:'fisico',          label:'TURNO FÍSICO',       lines:['TURNO','FÍSICO'], type:'date', w:132, tight:true, sello:true}
+      {k:'fisico',          label:'TURNO FÍSICO',       lines:['TURNO','FÍSICO'], type:'date', w:132, tight:true, sello:true},
+      /* SELLO DE TRAZABILIDAD: quién digitó el registro y cuándo. No se muestra como
+         columna (no gasta espacio en la tabla), pero queda en el registro, se ve al
+         abrir el registro y viaja en las exportaciones. */
+      {k:'tramitado_por',  label:'TRAMITADO POR',      type:'text', oculto:true},
+      {k:'tramitado_en',   label:'TRAMITADO EN',       type:'text', oculto:true}
     ]
   },
   no: {
@@ -930,7 +943,12 @@ const SCHEMAS = {
       {k:'prioridad',      label:'PRIORIDAD',          type:'text',  w:112, cat:'prioridad', tight:true},
       {k:'ac_evento',      label:'AC_EVENTO',          type:'textarea', span:true, w:360, cat:'cie10', full:true},
       {k:'autorizador',    label:'AUTORIZADOR',        type:'select', w:170, cat:'autorizador', tight:true},
-      {k:'observacion',    label:'OBSERVACION',        type:'textarea', span:true, w:230, tight:true}
+      {k:'observacion',    label:'OBSERVACION',        type:'textarea', span:true, w:230, tight:true},
+      /* SELLO DE TRAZABILIDAD: quién digitó el registro y cuándo. No se muestra como
+         columna (no gasta espacio en la tabla), pero queda en el registro, se ve al
+         abrir el registro y viaja en las exportaciones. */
+      {k:'tramitado_por',  label:'TRAMITADO POR',      type:'text', oculto:true},
+      {k:'tramitado_en',   label:'TRAMITADO EN',       type:'text', oculto:true}
     ]
   }
 };
@@ -1526,6 +1544,9 @@ function renderStats(key){
       '</b><span>En físico</span></div>' : '') +
     '<div class="stat"><b>' + pen + '</b><span>Por sincronizar</span></div>';
 }
+/* campos que se ven en la tabla y en el formulario. Los ocultos (el sello de
+   trazabilidad) solo se guardan y se exportan: no ocupan espacio en pantalla. */
+function campos(key){ return SCHEMAS[key].fields.filter(f => !f.oculto); }
 function renderHead(key){
   const s = SCHEMAS[key];
   /* Encabezados centrados. N° de registro al inicio (igual que en el Excel exportado) y ACCIONES al FINAL.
@@ -1535,7 +1556,7 @@ function renderHead(key){
     (key === 'tq' ? '<th class="tight pick" style="width:34px"><input type="checkbox" class="pick" id="pick-all-' + key +
       '" title="Seleccionar todo lo visible (para marcar en lote)"></th>' : '') +
     '<th class="tight" style="width:52px">N°</th>' +
-    s.fields.map(f => {
+    campos(key).map(f => {
       /* 1) tight -> se ajusta al contenido · 2) ancho fijo -> el texto se envuelve dentro
          · 3) sin ancho -> es la columna que absorbe el espacio sobrante (texto largo) */
       const st = f.tight ? ' class="tight" style="width:1px"'
@@ -1554,7 +1575,7 @@ function renderBody(key){
   const shown = all.slice(0, u.limit);
   const tb = $('#body-' + key);
   if(!all.length){
-    tb.innerHTML = '<tr><td colspan="' + (s.fields.length + 2 + (key === 'tq' ? 1 : 0)) + '"><div class="empty"><img class="empty-logo" src="' + LOGO_HUSJ + '" alt=""><b>Sin registros ' + esc(s.short) + '</b>' +
+    tb.innerHTML = '<tr><td colspan="' + (campos(key).length + 2 + (key === 'tq' ? 1 : 0)) + '"><div class="empty"><img class="empty-logo" src="' + LOGO_HUSJ + '" alt=""><b>Sin registros ' + esc(s.short) + '</b>' +
       'Sube tu archivo Excel/CSV o crea el primer registro.</div></td></tr>';
   } else {
     /* i + 1 = número de registro (1, 2, 3...). Se numera en el mismo orden en que
@@ -1585,7 +1606,7 @@ function renderBody(key){
       (key === 'tq' ? '<td class="pick" data-label="SEL"><input type="checkbox" class="pick" data-id="' + esc(r.id) + '"' +
         (state.ui.tq.sel && state.ui.tq.sel[r.id] ? ' checked' : '') + ' title="Seleccionar para marcar en lote"></td>' : '') +
       '<td class="num" data-label="N°">' + (i + 1) + '</td>' +
-      s.fields.map(f => '<td' + (f.type === 'select' ? ' class="sel-cell"' : '') + ' data-label="' + esc(f.label) + '">' +
+      campos(key).map(f => '<td' + (f.type === 'select' ? ' class="sel-cell"' : '') + ' data-label="' + esc(f.label) + '">' +
         (f.sello ? selloHtml(r) : (f.type === 'select' ? selectHtml(f, r) : cellHtml(f, r[f.k]))) + '</td>').join('') +
       '<td class="actions" data-label="ACCIONES">' +      /* la última columna de la fila */
         '<button class="edit" data-id="' + esc(r.id) + '" title="Editar" aria-label="Editar registro">' + ICON_EDIT + '</button>' +
@@ -1752,8 +1773,11 @@ function openForm(key, id){
   $('#form-title').innerHTML = (rec ? 'Editar' : 'Nuevo') + ' · <b>' + esc(s.title) + '</b>';
   $('#form-err').style.display = 'none';
   const g = $('#form-grid');
-  g.innerHTML = s.fields.map(f => {
-    const val = rec ? (rec[f.k] == null ? '' : rec[f.k]) : '';
+  g.innerHTML = campos(key).map(f => {
+    let val = rec ? (rec[f.k] == null ? '' : rec[f.k]) : '';
+    /* al CREAR un registro, el autorizador se propone con el usuario de la sesión;
+       se puede cambiar si ese turno lo llevó otro compañero. Al editar no se toca. */
+    if(!rec && f.k === 'autorizador') val = nombreSesion();
     const esSelect = f.type === 'select';
     const opts = esSelect
       ? optsFor(f.cat, val)
@@ -1786,12 +1810,21 @@ function openForm(key, id){
     ta.value = (ta.value ? ta.value.replace(/\s*$/, '') + '\n' : '') + v;
     e.target.value = '';
   };
+  /* quién digitó este registro */
+  const st = $('#form-stamp');
+  if(st){
+    if(rec && rec.tramitado_por) st.innerHTML = 'Tramitado por <b>' + esc(rec.tramitado_por) + '</b>' +
+      (rec.tramitado_en ? ' · ' + esc(fmtSello(rec.tramitado_en)) : '');
+    else if(rec) st.innerHTML = 'Registro anterior al sello de trazabilidad: no tiene usuario registrado.';
+    else st.innerHTML = 'Registro nuevo: se guardará con tu usuario (<b>' + esc(nombreSesion() || 'sin sesión') + '</b>) y la fecha y hora.';
+  }
   $('#modal-form').classList.add('open');
   setTimeout(() => { const i = g.querySelector('input,textarea'); if(i) i.focus(); }, 70);
 }
 function collectForm(){
   const key = state.editing.key, s = SCHEMAS[key], out = {}, missing = [];
   s.fields.forEach(f => {
+    if(f.oculto) return;            /* el sello no se edita desde el formulario */
     const el = $('#form-grid [data-f="' + f.k + '"]');
     let v = el ? String(el.value || '').trim() : '';
     el && el.classList.remove('bad');
@@ -1814,6 +1847,9 @@ function saveForm(){
   const rec = Object.assign({
     id: id || uid(),
     created_at: prev ? prev.created_at : nowISO(),
+    /* el sello se pone al crear y NO se pisa al editar: queda quién lo digitó */
+    tramitado_por: prev ? (prev.tramitado_por || '') : nombreSesion(),
+    tramitado_en: prev ? (prev.tramitado_en || '') : (nombreSesion() ? nowISO() : ''),
     updated_at: nowISO(),
     _sync: 'pending'
   }, c.values);
@@ -1975,7 +2011,7 @@ function sqlScript(){
          '-- Si prefieres entrar sin iniciar sesion, abajo hay dos politicas "anon" comentadas.\n\n' +
          one(SCHEMAS.tq.table, SCHEMAS.tq.fields) + '\n' + one(SCHEMAS.no.table, SCHEMAS.no.fields) +
          '\n-- Actualizacion de la tabla TQ al formato del reporte (por si ya la habias creado):\n' +
-         ['folio_dgh','id_paciente','cups','cups_descripcion','paciente','servicio_actual','cama','especialidad','prioridad','estado','fisico']
+         ['folio_dgh','id_paciente','cups','cups_descripcion','paciente','servicio_actual','cama','especialidad','prioridad','estado','fisico','tramitado_por','tramitado_en']
             .map(c => 'alter table public.' + SCHEMAS.tq.table + ' add column if not exists ' + c + ' text;')
             .join('\n') + '\n' +
          '\n-- Si prefieres permitir acceso SIN iniciar sesion (menos seguro: datos de pacientes\n' +
@@ -2108,6 +2144,13 @@ function authMsg(e){
   return t || 'No se pudo validar el acceso.';
 }
 function sesion(){ return lsGet('ph_session', null); }
+/* nombre del usuario que tiene la sesion abierta */
+function nombreSesion(){ const s = sesion(); return (s && s.nombre) ? s.nombre : ''; }
+/* 2026-10-07T08:42:13Z -> 07/10/2026 08:42 */
+function fmtSello(v){
+  const m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  return m ? (m[3] + '/' + m[2] + '/' + m[1] + ' ' + m[4] + ':' + m[5]) : String(v || '');
+}
 /* la sesión se conserva 30 días y se renueva sola: así no te bota cada hora */
 function sessionOK(){ const s = sesion(); return !!(s && s.rexp > Date.now() && (s.t || s.rt)); }
 function guardarSesion(d, ced, extra){
