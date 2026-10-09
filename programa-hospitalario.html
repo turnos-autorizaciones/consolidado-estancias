@@ -427,6 +427,24 @@ button.link:hover{color:#01407e}
   background:var(--azul-claro); border:1px solid #cfe2f4; color:var(--ink-soft);
 }
 .stamp b{color:var(--ink)}
+/* ===== historial del trámite (dentro del formulario) =====
+   Se lee de la columna «historial» del registro, que escribe el servidor. */
+#form-hist{margin-top:13px}
+#form-hist:empty{display:none}
+.hist-t{margin:0 0 8px; padding-top:11px; border-top:1px solid var(--line); font-size:11.5px;
+        font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:var(--ink-soft)}
+.hist-l{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px;
+        max-height:236px; overflow:auto}
+.hist-l li{display:grid; grid-template-columns:112px 146px 1fr; gap:9px; align-items:baseline;
+           font-size:12px; padding:6px 10px; border:1px solid var(--line);
+           border-left:3px solid var(--purple); border-radius:9px; background:#f7fbff}
+.hist-when{color:var(--ink-soft); font-variant-numeric:tabular-nums; white-space:nowrap}
+.hist-who{font-weight:700; overflow:hidden; text-overflow:ellipsis}
+.hist-what{color:var(--ink)}
+.hist-vacio{color:var(--ink-soft)}
+/* una línea anotada por el programa pero que el servidor todavía no confirmó */
+.hist-local{color:var(--warn); font-style:normal; font-weight:700; font-size:10.5px}
+@media (max-width:760px){ .hist-l li{grid-template-columns:1fr; gap:2px} }
 
 /* ============ IDENTIDAD DEL HOSPITAL ============ */
 /* el logo va sobre una placa blanca: así se lee bien sobre el azul */
@@ -788,6 +806,7 @@ button.link:hover{color:#01407e}
     <div class="body">
       <div class="stamp" id="form-stamp"></div>
       <div class="grid" id="form-grid"></div>
+      <div id="form-hist"></div>
       <div class="err" id="form-err" style="display:none"></div>
     </div>
     <footer>
@@ -2023,6 +2042,36 @@ function openForm(key, id){
     else if(rec) st.innerHTML = 'Registro anterior al sello de trazabilidad: no tiene usuario registrado.';
     else st.innerHTML = 'Registro nuevo: se guardará con tu usuario (<b>' + esc(nombreSesion() || 'sin sesión') + '</b>) y la fecha y hora.';
   }
+  /* ---- historial del trámite ----
+     Lo escribe el SERVIDOR dentro del propio registro (columna «historial»): aquí
+     solo se muestra, del cambio más reciente al más antiguo. La aplicación no
+     puede escribir ni borrar estas líneas. */
+  const hs = $('#form-hist');
+  if(hs){
+    if(!rec){
+      hs.innerHTML = '';                     /* al crear todavía no hay historial */
+    } else {
+      const lineas = Array.isArray(rec.historial) ? rec.historial.slice().reverse() : [];
+      const valor = v => (v == null || String(v).trim() === '')
+        ? '<i class="hist-vacio">(vacío)</i>' : '<b>' + esc(v) + '</b>';
+      const detalle = x => {
+        const campo = String(x.campo || '');
+        if(campo.toUpperCase() === 'CREACIÓN'){
+          const ini = String(x.despues == null ? '' : x.despues).trim();
+          return 'Registro creado' + (ini ? ' · estado inicial ' + valor(x.despues) : '');
+        }
+        return '<b>' + esc(campo) + '</b>: ' + valor(x.antes) + ' → ' + valor(x.despues);
+      };
+      hs.innerHTML = '<h4 class="hist-t">Historial del trámite</h4>' + (lineas.length
+        ? '<ul class="hist-l">' + lineas.map(x =>
+            '<li><span class="hist-when">' + esc(fmtSello(x.cuando)) + '</span>' +
+            '<span class="hist-who">' + esc(x.quien || 'sin sesión') +
+              (x.local ? ' <i class="hist-local">(sin confirmar)</i>' : '') + '</span>' +
+            '<span class="hist-what">' + detalle(x) + '</span></li>').join('') + '</ul>'
+        : '<p class="hint">Este turno no tiene cambios de trámite registrados.<br>' +
+          'El historial empezó a registrarse el 10/10/2026: los turnos anteriores a esa fecha no lo tienen.</p>');
+    }
+  }
   $('#modal-form').classList.add('open');
   setTimeout(() => { const i = g.querySelector('input,textarea'); if(i) i.focus(); }, 70);
 }
@@ -2039,6 +2088,46 @@ function collectForm(){
   });
   return {values: out, missing: missing, key: key};
 }
+/* ==========================================================================
+   HISTORIAL DEL TRÁMITE · se anota al guardar, no cuando contesta Supabase
+   Así el cambio queda registrado y visible AL INSTANTE, incluso sin conexión.
+   Al sincronizar, el servidor anota su propia línea (la definitiva), que
+   reemplaza a esta; mientras tanto la línea se muestra como «sin confirmar».
+   Estos campos son LOS QUE SE DECIDEN Y SE FIRMAN; si se cambia cualquier otro
+   (cama, paciente…), el historial no se ensucia.
+   ========================================================================== */
+function camposHistorial(key){
+  return (key === 'tq')
+    ? [['estado','ESTADO'], ['autorizador','AUTORIZADOR'],
+       ['num_autorizacion','N° DE AUTORIZACIÓN'], ['observacion','OBSERVACIÓN']]
+    : [['ac_evento','AC_EVENTO'], ['autorizador','AUTORIZADOR'], ['observacion','OBSERVACIÓN']];
+}
+function etiquetaHist(key, campo){
+  const p = camposHistorial(key).find(x => x[0] === campo);
+  return p ? p[1] : String(campo || '').toUpperCase();
+}
+/* Una línea por cada campo de trámite que cambió entre «antes» y «rec». */
+function anotarHistorial(key, rec, antes){
+  const quien = nombreSesion() || '', cuando = nowISO(), lineas = [];
+  camposHistorial(key).forEach(par => {
+    const a = (antes[par[0]] == null) ? null : antes[par[0]];
+    const d = (rec[par[0]]   == null) ? null : rec[par[0]];
+    if(String(a || '') !== String(d || ''))
+      lineas.push({campo:par[1], antes:a, despues:d, quien:quien, cuando:cuando, local:true});
+  });
+  if(!lineas.length) return null;                    /* nada del trámite: no se toca */
+  const previas = Array.isArray(antes.historial) ? antes.historial : [];
+  rec.historial = previas.concat(lineas);
+  return rec.historial;
+}
+/* Primera línea de un registro nuevo. */
+function anotarCreacion(key, rec){
+  rec.historial = [{campo:'CREACIÓN', antes:null,
+                    despues:((key === 'tq' ? rec.estado : rec.ac_evento) || null),
+                    quien:nombreSesion() || '', cuando:nowISO(), local:true}];
+  return rec.historial;
+}
+
 function saveForm(){
   const c = collectForm();
   if(c.missing.length){
@@ -2058,6 +2147,11 @@ function saveForm(){
     updated_at: nowISO(),
     _sync: 'pending'
   }, c.values);
+
+  /* historial del trámite: se anota aquí mismo, para que se vea al instante */
+  if(!prev) anotarCreacion(key, rec);
+  else      anotarHistorial(key, rec, prev);
+
   commit(key, rec);
   closeModal('modal-form');
   toast((prev ? 'Registro actualizado' : 'Registro guardado') + ' en <b>' + esc(SCHEMAS[key].short) + '</b>.', 'ok');
@@ -2124,7 +2218,10 @@ document.addEventListener('change', e => {
   }
 });
 
-/* desplegable AUTORIZADOR: se cambia directamente sobre la tabla */
+/* Desplegables de la tabla (AUTORIZADOR, ESTADO, PRIORIDAD): se cambian ahí mismo.
+   OJO: hay que escribir en el campo que de verdad se cambió (data-field). Antes
+   escribía siempre en «autorizador», así que cambiar el ESTADO metía el texto
+   «AUTORIZADO» dentro del campo AUTORIZADOR. */
 document.addEventListener('change', async e => {
   const sel = e.target && e.target.closest ? e.target.closest('select.cell-sel') : null;
   if(!sel) return;
@@ -2133,14 +2230,17 @@ document.addEventListener('change', async e => {
   const key = table.id === 'table-tq' ? 'tq' : 'no';
   const rec = state.data[key].find(r => r.id === sel.dataset.id);
   if(!rec) return;
+  const campo = sel.dataset.field || 'autorizador';        /* el campo real */
   const nuevo = String(sel.value || '').trim();
-  if(norm(nuevo) === norm(rec.autorizador)) return;
-  rec.autorizador = nuevo;
+  if(norm(nuevo) === norm(rec[campo])) return;             /* no cambió nada */
+  const antes = Object.assign({}, rec);                    /* copia para comparar */
+  rec[campo] = nuevo;
+  anotarHistorial(key, rec, antes);                        /* deja la línea del cambio */
   rec.updated_at = nowISO();
   rec._sync = 'pending';
   saveData(key);
   renderStats(key); renderBody(key); refreshAutFilter(key);
-  toast('AUTORIZADOR de ' + esc(rec.nom_paciente || rec.paciente || 'el registro') + ': ' +
+  toast(etiquetaHist(key, campo) + ' de ' + esc(rec.paciente || 'el registro') + ': ' +
         (nuevo ? '<b>' + esc(nuevo) + '</b>' : 'vacío'), 'ok');
   if(sb.on()){
     try{
@@ -2357,8 +2457,20 @@ function sesion(){ return lsGet('ph_session', null); }
 function nombreSesion(){ const s = sesion(); return (s && s.nombre) ? s.nombre : ''; }
 /* 2026-10-07T08:42:13Z -> 07/10/2026 08:42 */
 function fmtSello(v){
-  const m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
-  return m ? (m[3] + '/' + m[2] + '/' + m[1] + ' ' + m[4] + ':' + m[5]) : String(v || '');
+  const t = String(v || '').trim();
+  const m = t.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if(!m) return t;
+  /* El servidor y el programa guardan la hora en UTC (termina en «Z»). Se muestra
+     en la hora local de quien mira, no en UTC: antes salía 5 horas adelantada. */
+  if(/Z$/i.test(t) || /[+-]\d{2}:?\d{2}$/.test(t)){
+    const d = new Date(t);
+    if(!isNaN(d.getTime())){
+      const p = n => String(n).padStart(2, '0');
+      return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' +
+             p(d.getHours()) + ':' + p(d.getMinutes());
+    }
+  }
+  return m[3] + '/' + m[2] + '/' + m[1] + ' ' + m[4] + ':' + m[5];   /* sin zona: tal cual */
 }
 /* la sesión se conserva 30 días y se renueva sola: así no te bota cada hora */
 function sessionOK(){ const s = sesion(); return !!(s && s.rexp > Date.now() && (s.t || s.rt)); }
