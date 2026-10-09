@@ -601,19 +601,20 @@ button.link:hover{color:#01407e}
       <p class="inst">Hospital Universitario San José · E.S.E. Popayán</p>
       <h1>Consolidado de Estancias:
         <select id="hdr-mes" class="hdr-mes" title="Mes del consolidado" aria-label="Mes del consolidado">
-          <option>Enero</option>
-          <option>Febrero</option>
-          <option>Marzo</option>
-          <option>Abril</option>
-          <option>Mayo</option>
-          <option>Junio</option>
-          <option>Julio</option>
-          <option>Agosto</option>
-          <option>Septiembre</option>
-          <option selected>Octubre</option>
-          <option>Noviembre</option>
-          <option>Diciembre</option>
+          <option value="01">Enero</option>
+          <option value="02">Febrero</option>
+          <option value="03">Marzo</option>
+          <option value="04">Abril</option>
+          <option value="05">Mayo</option>
+          <option value="06">Junio</option>
+          <option value="07">Julio</option>
+          <option value="08">Agosto</option>
+          <option value="09">Septiembre</option>
+          <option value="10" selected>Octubre</option>
+          <option value="11">Noviembre</option>
+          <option value="12">Diciembre</option>
         </select>
+        <select id="hdr-anio" class="hdr-mes" title="Año del consolidado" aria-label="Año del consolidado"></select>
       </h1>
     </div>
     <div class="hdr-actions">
@@ -1066,8 +1067,9 @@ const state = {
   ui: {
     /* fis: filtro del control de físico (''=todos, 'si'=recibidos, 'no'=pendientes)
        sel: filas seleccionadas con la casilla, para marcar varias de una vez */
-    tq:{q:'', from:'', to:'', aut:'', fis:'', limit:300, sel:{}},
-    no:{q:'', from:'', to:'', aut:'', fis:'', limit:300, sel:{}}
+    /* mes: mes del consolidado elegido en la cabecera ('01'..'12' · '' = todos) */
+    tq:{q:'', from:'', to:'', aut:'', fis:'', mes:'', limit:300, sel:{}},
+    no:{q:'', from:'', to:'', aut:'', fis:'', mes:'', limit:300, sel:{}}
   },
   editing: null,
   imp: null,
@@ -1439,6 +1441,8 @@ async function runImport(){
   if(!mapped.length) return;
   let nuevos = 0, act = 0, vacios = 0, sinCambios = 0;
   const byDup = {};
+  /* los meses que trae el archivo, para saltar solos a ese mes al terminar */
+  const mesesArchivo = {};
   state.data[key].forEach(r => { const d = dupKey(key, r); if(d) byDup[d] = r; });
   const toPush = [];
   imp.aoa.slice(imp.headerRow + 1).forEach(row => {
@@ -1452,6 +1456,8 @@ async function runImport(){
       rec[fk] = v;
     });
     if(!any){ vacios++; return; }
+    /* se anota de qué mes es la fila (para saltar solos a ese mes al terminar) */
+    if(rec.fecha){ const cm = claveMes(rec.fecha); if(cm) mesesArchivo[cm] = 1; }
     const d = dupKey(key, rec);
     if(d && byDup[d]){
       const prev = byDup[d];
@@ -1468,6 +1474,18 @@ async function runImport(){
       nuevos++; toPush.push(r);
     }
   });
+  /* ---- el consolidado salta solo al mes del archivo ----
+     Si todo lo que trae el archivo es de un mismo mes, el mes de la cabecera se
+     pone en ese. Así lo importado se ve enseguida y no parece que se perdiera.
+     Si el archivo mezcla meses, no se toca el mes y se avisa. */
+  const meses = Object.keys(mesesArchivo);
+  if(meses.length === 1){
+    setMesConsolidado(meses[0]);
+    toast('El consolidado se puso en <b>' + esc(etiquetaMes(meses[0])) + '</b>, el mes del archivo.', 'ok');
+  } else if(meses.length > 1){
+    toast('El archivo trae meses distintos (' + esc(meses.map(etiquetaMes).join(', ')) +
+          '): no cambié el mes. Elige el mes en la cabecera.', 'warn');
+  }
   saveData(key); renderPanel(key);
   closeModal('modal-import');
   toast('Importación en <b>' + esc(s.short) + '</b>: ' + nuevos + ' nuevos, ' + act + ' actualizados' +
@@ -1544,9 +1562,76 @@ function horaSeg(v){
   if(h > 23) return null;
   return h * 3600 + mi * 60 + sg;
 }
+/* ==========================================================================
+   MES DEL CONSOLIDADO (el de la cabecera)
+   El consolidado se clasifica por meses. El mes elegido manda sobre TODO el
+   panel: la tabla, los contadores de arriba y lo que se exporta (Excel y CSV
+   exportan lo que se está viendo). Así, con «Septiembre» elegido y sin datos de
+   septiembre, no se muestra nada: es lo correcto, no un fallo.
+   La fecha se guarda como 'YYYY-MM-DD'; se acepta también 'dd/mm/aaaa' por si
+   algún archivo antiguo la trae así.
+   ========================================================================== */
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+               'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const MES_KEY = 'ph_mes_v1';    /* mes elegido, recordado en este navegador */
+const ANIO_KEY = 'ph_anio_v1';  /* año elegido */
+
+/* '2026-10' a partir de la fecha del registro ('' si no se puede leer) */
+function claveMes(v){
+  const t = String(v == null ? '' : v).trim();
+  let m = t.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);  /* 2026-10-01 · 2026/10/1 */
+  if(m) return m[1] + '-' + String(m[2]).padStart(2, '0');
+  m = t.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})/);    /* 01/10/2026 (día/mes/año) */
+  if(m) return m[3] + '-' + String(m[2]).padStart(2, '0');
+  return '';                                                /* fecha ilegible */
+}
+/* '2026-10' del mes que se está viendo ('' = sin filtro de mes) */
+function claveActual(){
+  const u = state.ui.tq;
+  if(!u || !u.mes) return '';
+  return (u.anio || String(new Date().getFullYear())) + '-' + u.mes;
+}
+function etiquetaMes(clave){
+  const p = String(clave || '').split('-');
+  return (MESES[Number(p[1]) - 1] || p[1] || '') + (p[0] ? ' ' + p[0] : '');
+}
+function etiquetaMesActual(){
+  const u = state.ui.tq;
+  return (u && u.mes) ? ((MESES[Number(u.mes) - 1] || '') + ' ' +
+                          (u.anio || String(new Date().getFullYear()))) : '';
+}
+function fechaEnMes(v){
+  const c = claveActual();
+  return !c || claveMes(v) === c;
+}
+/* Pone el consolidado en un mes concreto ('2026-10'). Lo usa la cabecera y
+   también la importación, que salta sola al mes del archivo. */
+function setMesConsolidado(clave){
+  const p = String(clave || '').split('-');
+  const anio = /^\d{4}$/.test(p[0] || '') ? p[0] : '';
+  const mes  = /^\d{2}$/.test(p[1] || '') ? p[1] : '';
+  KEYS.forEach(k => { state.ui[k].anio = anio; state.ui[k].mes = mes; state.ui[k].limit = 300; });
+  const selM = document.getElementById('hdr-mes'), selA = document.getElementById('hdr-anio');
+  if(selM && mes) selM.value = mes;
+  if(selA && anio){
+    if(!selA.querySelector('option[value="' + anio + '"]')){
+      const o = document.createElement('option'); o.value = anio; o.textContent = anio;
+      selA.appendChild(o);
+    }
+    selA.value = anio;
+  }
+  try{
+    if(mes)  localStorage.setItem(MES_KEY, mes);
+    if(anio) localStorage.setItem(ANIO_KEY, anio);
+  }catch(e){}
+  KEYS.forEach(k => renderPanel(k));
+}
+
 function rowsOf(key){
   const s = SCHEMAS[key], u = state.ui[key], q = norm(u.q);
   const list = state.data[key].filter(r => {
+    /* solo los del mes elegido en la cabecera */
+    if(!fechaEnMes(r.fecha)) return false;
     if(u.from && String(r.fecha || '') < u.from) return false;
     if(u.to   && String(r.fecha || '') > u.to)   return false;
     if(u.aut  && norm(r.autorizador) !== norm(u.aut)) return false;
@@ -1636,7 +1721,9 @@ function cellHtml(f, v){
 
 /* ---------------- render ---------------- */
 function renderStats(key){
-  const all = state.data[key], hoy = all.filter(isHoy).length, pen = all.filter(isPending).length;
+  /* los contadores son del mes elegido: si no, no cuadrarían con la tabla */
+  const all = state.data[key].filter(r => fechaEnMes(r.fecha));
+  const hoy = all.filter(isHoy).length, pen = all.filter(isPending).length;
   const third = key === 'tq'
     ? {v: all.filter(r => /^AUTORIZADO$/i.test(String(r.estado || '').trim())).length, l:'Autorizados'}
     : {v: all.filter(r => /URGEN/i.test(String(r.prioridad || ''))).length, l:'Urgencias'};
@@ -1678,9 +1765,11 @@ function renderBody(key){
   const s = SCHEMAS[key], all = rowsOf(key), u = state.ui[key];
   const shown = all.slice(0, u.limit);
   const tb = $('#body-' + key);
+  const nomMes = etiquetaMesActual();
   if(!all.length){
-    tb.innerHTML = '<tr><td colspan="' + (campos(key).length + 2 + (key === 'tq' ? 1 : 0)) + '"><div class="empty"><img class="empty-logo" src="' + LOGO_HUSJ + '" alt=""><b>Sin registros ' + esc(s.short) + '</b>' +
-      'Sube tu archivo Excel/CSV o crea el primer registro.</div></td></tr>';
+    tb.innerHTML = '<tr><td colspan="' + (campos(key).length + 2 + (key === 'tq' ? 1 : 0)) + '"><div class="empty"><img class="empty-logo" src="' + LOGO_HUSJ + '" alt=""><b>Sin registros ' + esc(s.short) + (nomMes ? ' en ' + esc(nomMes) : '') + '</b>' +
+      (nomMes ? 'El mes de ' + esc(nomMes) + ' todavía no tiene registros. Sube el archivo de ' + esc(nomMes) + ' o cambia el mes en la cabecera.'
+              : 'Sube tu archivo Excel/CSV o crea el primer registro.') + '</div></td></tr>';
   } else {
     /* i + 1 = número de registro (1, 2, 3...). Se numera en el mismo orden en que
        se muestran y se exportan los registros, así que "Mostrando 300 de 528"
@@ -1719,10 +1808,16 @@ function renderBody(key){
       '</tr>'
     ).join('');
   }
+  /* red de seguridad: si un registro trae la fecha en un formato que no se puede
+     leer, no aparecería en ningún mes. Se avisa en vez de esconderlo. */
+  const sinMes = state.data[key].filter(r => !claveMes(r.fecha)).length;
   $('#info-' + key).innerHTML =
     '<span>Mostrando <b>' + shown.length + '</b> de <b>' + all.length + '</b> registro(s)' +
+    (nomMes ? ' de <b>' + esc(nomMes) + '</b>' : '') +
     (all.length > shown.length ? ' filtrados' : '') + '.</span>' +
     (all.length > shown.length ? '<button class="btn ghost" id="more-' + key + '">Ver 300 más</button>' : '') +
+    (sinMes ? '<span class="hint" style="color:var(--warn); font-weight:700">' + sinMes +
+      ' registro(s) con fecha ilegible: no entran en ningún mes.</span>' : '') +
     '<span class="hint">Las filas con barra amarilla aún no están sincronizadas con Supabase.</span>';
   const more = $('#more-' + key);
   if(more) more.onclick = () => { u.limit += 300; renderBody(key); };
@@ -1879,9 +1974,15 @@ function openForm(key, id){
   const g = $('#form-grid');
   g.innerHTML = campos(key).map(f => {
     let val = rec ? (rec[f.k] == null ? '' : rec[f.k]) : '';
-    /* al CREAR un registro, el autorizador se propone con el usuario de la sesión;
-       se puede cambiar si ese turno lo llevó otro compañero. Al editar no se toca. */
-    if(!rec && f.k === 'autorizador') val = nombreSesion();
+    /* El AUTORIZADOR se propone con el usuario de la sesión: el que está tramitando
+       el turno. Se puede cambiar en la lista si ese turno lo llevó otro compañero.
+         - Al CREAR: se propone siempre.
+         - Al EDITAR: solo si el turno todavía no tiene autorizador (los registros que
+           llegan del reporte vienen sin él, que es el caso normal). Si YA tiene uno,
+           se respeta: no se cambia por detrás la firma de un turno ya tramitado.
+       En el servidor, para un autorizador normal, el nombre se fija igualmente al
+       suyo; quien puede asignarlo a otra persona es el Administrador. */
+    if(f.k === 'autorizador' && !String(val == null ? '' : val).trim()) val = nombreSesion();
     const esSelect = f.type === 'select';
     const opts = esSelect
       ? optsFor(f.cat, val)
@@ -2643,17 +2744,18 @@ init();
 </script>
 
 <script>
- /* ==========================================================================
-    AJUSTES VISUALES — bloque aislado
-    Va aparte para no tocar ni una línea del programa. Solo hace dos cosas:
+/* ==========================================================================
+    AJUSTES DE LA CABECERA — bloque aparte
+    Va separado para no mezclarlo con el programa. Hace dos cosas:
       1) Rellena el círculo del usuario con sus iniciales (el nombre lo escribe el
          programa en #user-name; aquí solo se leen sus primeras letras).
-      2) Recuerda en este navegador el mes elegido en el título.
+      2) Mantiene los selectores de MES y AÑO del consolidado: los rellena, los
+         recuerda en este navegador y pide al programa que vuelva a pintar.
+         (MES_KEY, ANIO_KEY, claveMes y setMesConsolidado son del programa.)
     Si algo fallara, el programa sigue funcionando igual: esto no participa en
     el guardado, la sincronización ni el acceso.
     ========================================================================== */
  (function(){
-   var MES_KEY = 'ph_mes_v1';
 
    /* --- 1) iniciales en el círculo --- */
    var av  = document.getElementById('user-initials');
@@ -2675,14 +2777,58 @@ init();
      pintarIniciales();
    }
 
-   /* --- 2) el mes del consolidado --- */
-   var mes = document.getElementById('hdr-mes');
-   if(mes){
-     try{ var g = localStorage.getItem(MES_KEY); if(g) mes.value = g; }catch(e){}
-     mes.addEventListener('change', function(){
-       try{ localStorage.setItem(MES_KEY, mes.value); }catch(e){}
+   /* --- 2) el mes y el año del consolidado ---
+      OJO: esto NO es solo visual. El mes elegido manda sobre la tabla, sobre los
+      contadores y sobre lo que se exporta (ver claveActual() en el programa).
+      Con «Septiembre» y sin datos de septiembre, no se muestra nada: es correcto.
+      El año separa, por ejemplo, octubre de 2026 de octubre de 2027. */
+   var selM = document.getElementById('hdr-mes');
+   var selA = document.getElementById('hdr-anio');
+
+   function pintarAnios(){
+     if(!selA) return;
+     var años = {};
+     /* los años que hay en los datos + el año en curso */
+     ['tq','no'].forEach(function(k){
+       (state.data[k] || []).forEach(function(r){
+         var c = claveMes(r.fecha); if(c) años[c.slice(0, 4)] = 1;
+       });
      });
+     años[String(new Date().getFullYear())] = 1;
+     var lista = Object.keys(años).sort().reverse();
+     var elegido = selA.value;
+     selA.innerHTML = lista.map(function(a){
+       return '<option value="' + a + '">' + a + '</option>';
+     }).join('');
+     selA.value = (elegido && lista.indexOf(elegido) >= 0) ? elegido : (lista[0] || '');
    }
+
+   function aplicarMes(){
+     try{
+       if(!selM) return;
+       var anio = (selA && selA.value) ? selA.value : String(new Date().getFullYear());
+       setMesConsolidado(anio + '-' + (selM.value || '10'));
+     }catch(e){
+       if(window.console) console.warn('No se pudo aplicar el mes del consolidado:', e);
+     }
+   }
+
+    if(selM){
+      pintarAnios();
+      var gm = null, ga = null;
+      try{ gm = localStorage.getItem(MES_KEY); ga = localStorage.getItem(ANIO_KEY); }catch(e){}
+      /* Manda lo guardado en este navegador. Si no hay nada guardado, se abre en el
+         MES EN CURSO (hoy: octubre), no en un mes fijo: así, dentro de un año, no se
+         abrirá en un mes viejo. */
+      selM.value = /^\d{2}$/.test(gm || '')
+        ? gm
+        : String(new Date().getMonth() + 1).padStart(2, '0');
+      if(selA && /^\d{4}$/.test(ga || '')) selA.value = ga;
+      if(selA && !selA.value) selA.value = String(new Date().getFullYear());
+      selM.addEventListener('change', aplicarMes);
+      if(selA) selA.addEventListener('change', aplicarMes);
+      aplicarMes();                                    /* se aplica desde el arranque */
+    }
  })();
 </script>
 </body>
