@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Programa Hospitalario · TQ Turnos Quirúrgicos y N.O. Notas Operatorias</title>
+<title>Consolidado de Estancias · Programa Hospitalario</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -36,6 +36,15 @@
   --grad-soft:linear-gradient(135deg,#e1f1fd,#d3e4f1);
   /* margen lateral del contenido: se adapta al ancho de la pantalla */
   --pad:clamp(16px, 2.4vw, 44px);
+  /* ====== TAMAÑO DE LETRA DE LA TABLA DE DATOS (TQ y N.O.) ======
+     Un solo número manda: registros, encabezado, etiquetas y el desplegable
+     de AUTORIZADOR. Antes la tabla crecía con el ancho de la pantalla; ya no. */
+  --fs-tabla:8px;
+  /* ====== ENCABEZADO DE LA TABLA ======
+     La fila de títulos va en azul pleno con letra blanca para que se diferencie
+     de un vistazo del cuerpo de datos. */
+  --th-bg:#014c9f;
+  --th-fg:#ffffff;
 }
 *{box-sizing:border-box}
 html,body{margin:0; padding:0; overflow-x:hidden}
@@ -81,6 +90,16 @@ header.app::after{
 .logo svg{animation:pulse 3.2s infinite ease-in-out}
 @keyframes pulse{0%,100%{transform:scale(1);opacity:.95}50%{transform:scale(1.08);opacity:1}}
 .brand h1{font-size:21px; margin:0; font-weight:700; letter-spacing:.2px}
+/* El mes del consolidado, dentro del título. Se ve como una píldora sobre el azul
+   y se puede cambiar; la elección se recuerda en el navegador. */
+.hdr-mes{
+  font:inherit; font-size:15px; font-weight:800; color:#fff; width:auto; cursor:pointer;
+  background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.42);
+  border-radius:999px; padding:3px 11px; margin-left:6px; vertical-align:middle;
+  appearance:none; -webkit-appearance:none;
+}
+.hdr-mes:hover{background:rgba(255,255,255,.3)}
+.hdr-mes option{color:#0e2036; background:#fff}
 .brand p{margin:2px 0 0; font-size:13px; color:rgba(255,255,255,.92)}
 .brand p .ver{opacity:.72; font-size:11px; letter-spacing:.3px}
 .hdr-actions{margin-left:auto; display:flex; gap:8px; align-items:center; flex-wrap:wrap}
@@ -121,6 +140,10 @@ nav.tabs button[data-panel="listas"] .tag{background:#eeedfa; color:#5c5cb0; bor
 nav.tabs button[data-panel="config"] .tag{background:#e9f2f5; color:#3d7389; border-color:#cfe3e9}
 nav.tabs button.active .tag{background:rgba(255,255,255,.22); color:#fff; border-color:rgba(255,255,255,.4)}
 
+/* «Listas» (catálogos) OCULTA por petición: no se usa. El panel y sus datos
+   siguen intactos dentro del programa; solo se deja de mostrar la pestaña. */
+nav.tabs button[data-panel="listas"], #panel-listas{display:none !important}
+
 /* ============ PANELES ============ */
 section.panel{display:none}
 section.panel.visible{display:block; animation:fade .25s ease}
@@ -141,6 +164,15 @@ section.panel.visible{display:block; animation:fade .25s ease}
 
 /* toolbar */
 .toolbar{display:flex; gap:9px; flex-wrap:wrap; align-items:center; margin-bottom:12px}
+/* La barra del reporte (Subir Excel/CSV, Nuevo registro, buscador y filtros) se
+   queda pegada arriba cuando se desplaza la página, para no tener que volver a
+   subir a buscarla. Si el navegador no la puede fijar, no cambia nada. */
+#tool-tq, #tool-no{
+  position:sticky; top:0; z-index:7;
+  background:var(--card); padding:4px 0 8px; margin-bottom:4px;
+  /* no se deja comprimir cuando la pantalla es baja: la barra conserva su alto */
+  flex:0 0 auto;
+}
 .btn{
   appearance:none; border:1px solid var(--line); background:#fff; color:var(--ink);
   padding:10px 14px; border-radius:12px; font:inherit; font-weight:700; font-size:13px;
@@ -163,6 +195,8 @@ input,select,textarea{
   border-radius:11px; padding:9px 11px; outline:none; transition:.16s; width:100%;
 }
 input:focus,select:focus,textarea:focus{border-color:var(--purple); box-shadow:0 0 0 4px rgba(13,117,216,.16)}
+/* el texto de ejemplo se veía casi invisible: el gris del navegador es muy claro */
+::placeholder{color:#6b8296; opacity:1}
 textarea{min-height:74px; resize:vertical}
 .search{min-width:210px}
 .spacer{flex:1 1 auto}
@@ -185,17 +219,18 @@ textarea{min-height:74px; resize:vertical}
   max-height:calc(100vh - 260px);                 /* respaldo para navegadores viejos */
   max-height:max(460px, calc(100vh - 260px));
 }
-/* registros: 10px · encabezado: 11px (definido en thead th, mas abajo) */
-table{border-collapse:separate; border-spacing:0; width:100%; font-size:10px}
-/* la fila y el grupo del encabezado pintan el morado: así no se ve el fondo blanco
-   en las rendijas de fracción de píxel que el navegador deja entre celdas */
-thead, thead tr{background:#ecf6ff}
+/* registros y encabezado: los manda --fs-tabla (arriba, en :root) */
+table{border-collapse:separate; border-spacing:0; width:100%; font-size:var(--fs-tabla)}
+/* el encabezado va en azul pleno (--th-bg) y la fila también: así no se ve el
+   fondo blanco en las rendijas de fracción de píxel que el navegador deja
+   entre celdas */
+thead, thead tr{background:var(--th-bg)}
 thead th{
-  position:sticky; top:0; z-index:3; background:#ecf6ff; color:#26518a; text-align:center;
-  padding:8px 9px; font-weight:700; font-size:11px; letter-spacing:.3px; white-space:nowrap;
+  position:sticky; top:0; z-index:3; background:var(--th-bg); color:var(--th-fg); text-align:center;
+  padding:8px 9px; font-weight:700; font-size:var(--fs-tabla); letter-spacing:.3px; white-space:nowrap;
   border-bottom:1px solid #032950;
   /* cubre 1px a cada lado por si queda rendija entre columnas */
-  box-shadow:-1px 0 0 0 #ecf6ff, 1px 0 0 0 #ecf6ff;
+  box-shadow:-1px 0 0 0 var(--th-bg), 1px 0 0 0 var(--th-bg);
 }
 /* columnas cortas: ocupan solo lo que necesitan (el ancho sobrante va a las de texto largo).
    El encabezado puede partirse en dos líneas: si no, títulos como "FOLIO DGH" o
@@ -229,14 +264,14 @@ td.actions button svg{width:16px; height:16px; display:block}
 td.actions button:hover{background:#eef6fd; border-color:#cfe2f4}
 td.actions button.del{color:var(--danger)}
 td.actions button.del:hover{background:var(--danger-bg); border-color:#f3cccc}
-.pill{display:inline-block; padding:2px 9px; border-radius:999px; font-size:10px; font-weight:700; white-space:nowrap; border:1px solid transparent}
+.pill{display:inline-block; padding:2px 9px; border-radius:999px; font-size:var(--fs-tabla); font-weight:700; white-space:nowrap; border:1px solid transparent}
 .pill.ok{background:var(--ok-bg); color:var(--ok); border-color:#b7e6cd}
 .pill.warn{background:var(--warn-bg); color:var(--warn); border-color:#fbd5ba}
 .pill.info{background:var(--info-bg); color:var(--info); border-color:#c3d8fb}
 .pill.muted{background:#eef6fd; color:#3d5a78; border-color:#cfe2f4}
 /* desplegable dentro de la tabla (columna AUTORIZADOR) */
 select.cell-sel{
-  width:100%; min-width:118px; padding:5px 7px; font-size:10px; font-weight:600;
+  width:100%; min-width:118px; padding:5px 7px; font-size:var(--fs-tabla); font-weight:600;
   border:1px solid #cfe2f4; border-radius:9px; background:linear-gradient(#fff,#f1f8ff); color:var(--ink);
   cursor:pointer;
 }
@@ -244,12 +279,15 @@ select.cell-sel:hover{border-color:var(--purple)}
 select.cell-sel:focus{border-color:var(--purple); box-shadow:0 0 0 3px rgba(13,117,216,.18)}
 tbody tr.pending select.cell-sel{border-color:#e0c48a}
 /* ===== control del TURNO EN FÍSICO ===== */
-td.pick, th.pick{text-align:center}
+/* La casilla de la primera columna está OCULTA: no se usaba ni se entendía.
+   El dato no se borra (sigue guardado y sigue saliendo en el Excel), solo
+   desaparece de la tabla. Para que vuelva: quitar el display:none. */
+td.pick, th.pick{display:none !important}
 input.pick{width:15px; height:15px; accent-color:#014c9f; cursor:pointer; vertical-align:middle}
 tbody tr.grp-a input.pick, tbody tr.grp-b input.pick{background:#fff}
 button.sello{
   border:1px solid #cfe2f4; background:#fff; color:#5a748f; cursor:pointer; font-family:inherit;
-  border-radius:9px; padding:3px 9px; font-size:10px; font-weight:700; white-space:nowrap;
+  border-radius:9px; padding:3px 9px; font-size:var(--fs-tabla); font-weight:700; white-space:nowrap;
 }
 button.sello:hover{border-color:var(--purple); color:var(--purple-deep)}
 button.sello.on{background:#d5f6e5; border-color:#a9dfc1; color:#0b5132}
@@ -289,7 +327,7 @@ label.lab{display:block; font-size:11.5px; font-weight:700; color:var(--ink-soft
 label.lab .req{color:var(--pink-deep)}
 .modal footer{padding:13px 18px; border-top:1px solid var(--line); display:flex; gap:9px; justify-content:flex-end; flex-wrap:wrap; background:#f6fbff}
 .hint{font-size:12px; color:var(--ink-soft)}
-.err{color:var(--danger); font-size:12px; font-weight:700; margin-top:5px}
+.err{color:var(--danger); font-size:12px; font-weight:700; margin-top:5px; overflow-wrap:break-word}
 input.bad,select.bad,textarea.bad{border-color:#e08585; box-shadow:0 0 0 4px rgba(224,133,133,.16)}
 
 /* ============ TOAST ============ */
@@ -326,19 +364,51 @@ pre.code{
 #gate{
   position:fixed; inset:0; z-index:120; background:linear-gradient(150deg,#0b5aa8,#00457f);
   display:none; align-items:center; justify-content:center; padding:18px;
+  /* OJO: el formulario de activación es el más alto del programa. Sin poder
+     desplazarse, en un teléfono la tarjeta no cabe y el navegador la corta por
+     arriba y por abajo (y no había forma de llegar a lo cortado). */
+  overflow:auto; -webkit-overflow-scrolling:touch;
 }
 #gate.open{display:flex}
-.gate-card{background:#fff; border-radius:20px; padding:26px; width:min(420px,100%); box-shadow:0 30px 70px rgba(0,0,0,.4)}
+.gate-card{
+  background:#fff; border-radius:20px; padding:26px; width:min(420px,100%);
+  max-width:100%; box-shadow:0 30px 70px rgba(0,0,0,.4);
+  /* centrada cuando cabe, desplazable cuando no cabe: nunca se corta */
+  margin:auto;
+}
 .gate-card h2{margin:0 0 4px; font-size:19px}
 .gate-card p{margin:0 0 16px; font-size:13px; color:var(--ink-soft)}
 .gate-alt{margin-top:13px; text-align:center}
 button.link{background:none; border:0; padding:4px 2px; color:#014c9f; font:inherit; font-size:12.5px; font-weight:700; cursor:pointer; text-decoration:underline}
 button.link:hover{color:#01407e}
-/* Tu sesión en la cabecera: nombre + rol, sin robarle ancho a la tabla */
-.chip.who{max-width:210px}
-.chip.who b{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.chip.who .rol{font-size:11px; opacity:.85}
-@media (max-width:960px){ .chip.who .rol{display:none} }
+/* El aviso «Supabase conectado» de la cabecera, oculto por petición.
+   (El programa lo sigue actualizando por dentro; simplemente no se muestra.) */
+#chip-status{display:none !important}
+
+/* Tu sesión en la cabecera: círculo con las iniciales + nombre, rol y estado */
+.chip.who{
+  max-width:min(300px,48vw); padding:5px 15px 5px 6px; border-radius:999px;
+  gap:10px; text-align:left;
+}
+.who-av{
+  width:34px; height:34px; border-radius:50%; flex:0 0 auto;
+  display:grid; place-items:center; font-weight:800; font-size:12.5px;
+  letter-spacing:.5px; color:#fff;
+  background:linear-gradient(140deg,#7ec8ff,#016ad5);
+  box-shadow:0 0 0 2px rgba(255,255,255,.6), 0 4px 12px rgba(0,0,0,.22);
+}
+.who-txt{display:flex; flex-direction:column; line-height:1.18; min-width:0}
+.who-txt b{font-size:12.5px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.who-txt .rol{font-size:10.5px; opacity:.88}
+.who-txt .estado{display:inline-flex; align-items:center; gap:5px; font-size:10px; opacity:.95}
+.who-txt .estado i{
+  width:7px; height:7px; border-radius:50%; background:#5dffa8;
+  box-shadow:0 0 0 3px rgba(93,255,168,.28);
+}
+@media (max-width:960px){
+  .chip.who{padding:5px 6px}
+  .who-txt .rol{display:none}
+}
 
 /* los colores de sección de la propuesta, en las tarjetas de resumen */
 #stats-tq .stat:nth-child(1)::before{background:#1b70c3}
@@ -393,13 +463,13 @@ button.link:hover{color:#01407e}
 }
 
 /* ============ PANTALLAS GRANDES ============ */
-/* En monitores grandes la tabla crece de verdad: letra, alto de fila y ancho de
-   celda. En un portatil se mantiene compacta, exactamente como estaba. */
+/* En monitores grandes la tabla gana aire (alto de fila y ancho de celda), pero
+   el TAMAÑO DE LETRA ya no cambia: lo manda --fs-tabla, igual en todas las
+   pantallas. Antes crecía hasta 15px en monitores anchos. */
 @media (min-width:1500px){
-  table{font-size:11.5px}
-  thead th{font-size:12px; padding:9px 11px}
+  thead th{padding:9px 11px}
   tbody td{padding:8px 11px}
-  select.cell-sel{font-size:11.5px; padding:6px 9px; min-width:128px}
+  select.cell-sel{padding:6px 9px; min-width:128px}
   td.actions button svg{width:18px; height:18px}
   .clamp{max-width:340px}
   .clamp2{max-width:540px}
@@ -408,10 +478,9 @@ button.link:hover{color:#01407e}
   .card-sub{font-size:13.5px; max-width:1400px}
 }
 @media (min-width:1900px){
-  table{font-size:12.5px}
-  thead th{font-size:13px; padding:10px 13px}
+  thead th{padding:10px 13px}
   tbody td{padding:10px 13px}
-  select.cell-sel{font-size:12.5px; padding:7px 10px; min-width:138px}
+  select.cell-sel{padding:7px 10px; min-width:138px}
   td.actions button svg{width:20px; height:20px}
   .clamp{max-width:450px}
   .clamp2{max-width:700px}
@@ -422,16 +491,14 @@ button.link:hover{color:#01407e}
   .field-inline{font-size:13px}
 }
 @media (min-width:2400px){
-  table{font-size:13.5px}
-  thead th{font-size:14px; padding:11px 15px}
+  thead th{padding:11px 15px}
   tbody td{padding:11px 15px}
   .clamp{max-width:540px}
   .clamp2{max-width:840px}
   .stat b{font-size:30px}
 }
 @media (min-width:3000px){
-  table{font-size:15px}
-  thead th{font-size:15.5px; padding:12px 17px}
+  thead th{padding:12px 17px}
   tbody td{padding:12px 17px}
   .clamp{max-width:640px}
   .clamp2{max-width:980px}
@@ -439,11 +506,12 @@ button.link:hover{color:#01407e}
 }
 
 /* ============ EL PANEL Y LA TABLA LLENAN LA PANTALLA ============ */
-/* En monitores con altura de sobra, el panel activo, su tarjeta y el cuadro de registros
-   se estiran hasta el borde inferior: así no queda ninguna franja vacía debajo.
-   OJO: solo se aplica cuando HAY altura suficiente (min-height:860px); en portátiles
-   bajos (p. ej. 1366x768) el cuadro conserva su alto cómodo y la página se desplaza. */
-@media (min-width:761px) and (min-height:860px){
+/* El panel activo, su tarjeta y el cuadro de registros se estiran hasta el borde
+   inferior. Así la barra (Subir Excel, buscador y filtros) y los TÍTULOS DE COLUMNA
+   quedan siempre a la vista y lo único que se desplaza es la lista de registros.
+   Antes esto solo pasaba con 860px de alto o más: en un portátil normal (1366x768)
+   la página entera se desplazaba y se perdían de vista la barra y los títulos. */
+@media (min-width:761px) and (min-height:620px){
   /* solo las pestañas con tabla (TQ y N.O.); Listas y Configuración quedan igual */
   #panel-tq.visible, #panel-no.visible{display:flex; flex-direction:column; flex:1 1 auto; min-height:0}
   #panel-tq.visible > .card, #panel-no.visible > .card{flex:1 1 auto; display:flex; flex-direction:column; min-height:0}
@@ -456,7 +524,7 @@ button.link:hover{color:#01407e}
 @media (max-height:860px){
   header.app{padding:14px var(--pad) 12px}
   .brand .inst{display:none}          /* se oculta para no gastar alto de pantalla */
-  .brand p{font-size:11.5px}          /* se mantiene visible: aquí va la marca de versión */
+  .brand p{font-size:11.5px}          /* la línea del hospital, más discreta */
   .card-sub{display:none}             /* el texto explicativo se oculta para ganar alto */
   .stats{gap:8px; margin-bottom:10px}
   .stat{padding:8px 12px}
@@ -505,6 +573,23 @@ button.link:hover{color:#01407e}
   .table-wrap tbody td.sel-cell select.cell-sel{flex:1 1 52%; min-width:0; max-width:56%}
   .stat b{font-size:19px}
 }
+
+/* ============ ACCESO EN PANTALLAS ESTRECHAS ============ */
+/* El formulario de activación (código + cédula + clave repetida) es el más alto
+   del programa: en un teléfono se le quita aire para que quepa entero, ordenado
+   y sin que la tarjeta toque los bordes de la pantalla. */
+@media (max-width:480px){
+  #gate{padding:10px}
+  .gate-card{padding:18px 15px; border-radius:16px}
+  .gate-card h2{font-size:17px}
+  .gate-card p{font-size:12.5px; margin:0 0 12px}
+  .gate-logo{margin:0 0 12px}
+  .gate-logo img{width:196px}
+  .gate-logo span{font-size:9.5px}
+  label.lab{margin-bottom:4px}
+  input,select,textarea{padding:9px 10px}
+  .hint{font-size:11.5px}
+}
 </style>
 </head>
 <body>
@@ -514,8 +599,22 @@ button.link:hover{color:#01407e}
     <div class="logo"><img data-logo alt="Hospital Universitario San José · E.S.E. Popayán"></div>
     <div>
       <p class="inst">Hospital Universitario San José · E.S.E. Popayán</p>
-      <h1>Programa Hospitalario</h1>
-      <p>TQ · Turnos Quirúrgicos &nbsp;|&nbsp; N.O. · Notas Operatorias <span class="ver">v. 07-10-2026p · autorizador y trazabilidad</span></p>
+      <h1>Consolidado de Estancias:
+        <select id="hdr-mes" class="hdr-mes" title="Mes del consolidado" aria-label="Mes del consolidado">
+          <option>Enero</option>
+          <option>Febrero</option>
+          <option>Marzo</option>
+          <option>Abril</option>
+          <option>Mayo</option>
+          <option>Junio</option>
+          <option>Julio</option>
+          <option>Agosto</option>
+          <option>Septiembre</option>
+          <option selected>Octubre</option>
+          <option>Noviembre</option>
+          <option>Diciembre</option>
+        </select>
+      </h1>
     </div>
     <div class="hdr-actions">
       <button class="chip" id="chip-status" title="Estado del almacenamiento">
@@ -530,8 +629,12 @@ button.link:hover{color:#01407e}
         Configuración
       </button>
       <button class="chip who" id="chip-user" title="Tu sesión" style="display:none">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>
-        <b id="user-name">—</b><span class="rol" id="user-rol"></span>
+        <span class="who-av" id="user-initials" aria-hidden="true"></span>
+        <span class="who-txt">
+          <b id="user-name">—</b>
+          <span class="rol" id="user-rol"></span>
+          <span class="estado"><i></i>Activo</span>
+        </span>
       </button>
       <button class="chip" id="btn-salir" title="Cerrar sesión" style="display:none">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M16 8l4 4-4 4M20 12H9"/></svg>
@@ -2537,6 +2640,50 @@ function init(){
   }
 }
 init();
+</script>
+
+<script>
+ /* ==========================================================================
+    AJUSTES VISUALES — bloque aislado
+    Va aparte para no tocar ni una línea del programa. Solo hace dos cosas:
+      1) Rellena el círculo del usuario con sus iniciales (el nombre lo escribe el
+         programa en #user-name; aquí solo se leen sus primeras letras).
+      2) Recuerda en este navegador el mes elegido en el título.
+    Si algo fallara, el programa sigue funcionando igual: esto no participa en
+    el guardado, la sincronización ni el acceso.
+    ========================================================================== */
+ (function(){
+   var MES_KEY = 'ph_mes_v1';
+
+   /* --- 1) iniciales en el círculo --- */
+   var av  = document.getElementById('user-initials');
+   var nom = document.getElementById('user-name');
+   function iniciales(txt){
+     var p = String(txt || '').trim().split(/\s+/).filter(function(w){ return w && w !== '—'; });
+     if(!p.length) return '';
+     var a = p[0].charAt(0);
+     var b = p.length > 1 ? p[p.length - 1].charAt(0) : '';
+     return (a + b).toUpperCase();
+   }
+   function pintarIniciales(){
+     if(!av || !nom) return;
+     av.textContent = iniciales(nom.textContent) || '·';
+   }
+   if(av && nom){
+     /* el nombre puede llegar después de entrar: se observa y se repinta */
+     new MutationObserver(pintarIniciales).observe(nom, {childList:true, characterData:true, subtree:true});
+     pintarIniciales();
+   }
+
+   /* --- 2) el mes del consolidado --- */
+   var mes = document.getElementById('hdr-mes');
+   if(mes){
+     try{ var g = localStorage.getItem(MES_KEY); if(g) mes.value = g; }catch(e){}
+     mes.addEventListener('change', function(){
+       try{ localStorage.setItem(MES_KEY, mes.value); }catch(e){}
+     });
+   }
+ })();
 </script>
 </body>
 </html>
