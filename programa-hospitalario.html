@@ -305,6 +305,51 @@ td.num{color:#0b5aa8; text-align:right; font-weight:800; font-variant-numeric:ta
   background-color:#e2f6e8; color:#137a3f;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='11' fill='%2316a34a'/%3E%3Cpath d='M6.8 12.4l3.5 3.4 7-7.5' fill='none' stroke='%23fff' stroke-width='2.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
+/* ===== ESTADO: píldora con icono y su menú desplegable =====
+   Un <select> normal no deja poner iconos en las opciones, así que el estado se
+   pinta como botón + menú propio. Cada estado tiene su color en tres tonos:
+   --ec (círculo del icono), --ebg (fondo de la píldora) y --etx (la letra).
+   Lo usan tanto la píldora de la tabla como las filas del menú. */
+.est-autorizado  {--ec:#16a34a; --ebg:#e6f7ec; --etx:#137a3f}
+.est-pendiente   {--ec:#f0a300; --ebg:#fdf3dd; --etx:#95650a}
+.est-verificado  {--ec:#0b5aa8; --ebg:#e9f3fd; --etx:#0b5aa8}
+.est-noautorizado{--ec:#e11d48; --ebg:#fdeaef; --etx:#bd1a3f}
+.est-cotizacion  {--ec:#7c3aed; --ebg:#eee9fb; --etx:#5b21b6}
+.est-gestionado  {--ec:#0d9488; --ebg:#e2f5f3; --etx:#0f766e}
+.est-ambulatoria {--ec:#4f46e5; --ebg:#e9e9fd; --etx:#4038c4}
+.est-egreso      {--ec:#64748b; --ebg:#eceff3; --etx:#475569}
+.est-singestion  {--ec:#db2777; --ebg:#fdeaf4; --etx:#be185d}
+.est-vacio       {--ec:#94a3b8; --ebg:#eef2f7; --etx:#64748b}
+
+.est-pill{
+  display:inline-flex; align-items:center; gap:8px; width:100%; min-width:118px;
+  border:0; border-radius:999px; padding:6px 9px 6px 7px; cursor:pointer;
+  font:inherit; font-size:var(--fs-tabla); font-weight:800; text-align:left;
+  background:var(--ebg); color:var(--etx);
+}
+.est-pill:hover{box-shadow:0 0 0 2px rgba(13,117,216,.25)}
+.est-ic{
+  width:17px; height:17px; border-radius:50%; flex:0 0 auto;
+  display:grid; place-items:center; color:#fff; background:var(--ec);
+}
+.est-tx{flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.est-cv{flex:0 0 auto; opacity:.75}
+/* la lista que se abre al pulsar la píldora */
+.sel-menu{
+  position:fixed; z-index:90; width:236px; max-height:60vh; overflow:auto;
+  background:#fff; border:1px solid var(--line); border-radius:14px; padding:6px;
+  box-shadow:0 20px 44px rgba(6,32,64,.3); display:flex; flex-direction:column; gap:3px;
+}
+.sel-menu[hidden]{display:none}
+.sel-op{
+  display:flex; align-items:center; gap:9px; width:100%; text-align:left;
+  font:inherit; font-size:12.5px; font-weight:800; letter-spacing:.2px;
+  background:var(--ebg); color:var(--etx); border:0; border-radius:10px;
+  padding:8px 10px; cursor:pointer;
+}
+.sel-op:hover{box-shadow:inset 0 0 0 2px rgba(13,117,216,.3)}
+.sel-op.destacada{box-shadow:inset 0 0 0 2px var(--ec)}
+
 /* ===== AUTORIZADOR: píldora azul con la letra en azul ===== */
 .cell-sel.cell-aut{
   background:#e8f1fd; color:#0b5aa8; font-weight:800; border:0; border-radius:999px;
@@ -973,6 +1018,10 @@ button.link:hover{color:#01407e}
 </div>
 
 <div id="toasts"></div>
+
+<!-- MENÚ DEL ESTADO: la lista con los iconos y colores. Va aquí, fuera de la
+     tabla, porque la tabla recorta su contenido y dentro quedaría cortado. -->
+<div class="sel-menu" id="sel-menu" hidden></div>
 
 <script>
 /* ==========================================================================
@@ -1794,6 +1843,9 @@ function optsFor(catKey, extra){
 }
 function autorizadorOptions(extra){ return optsFor('autorizador', extra); }
 /* color del desplegable según el estado del turno */
+/* OJO: esta función quedó SIN USO al pasar el estado a píldora con menú (ahora
+   manda estadoClase, más abajo). Se deja porque sus clases (sel-ok/sel-pend/
+   sel-no/sel-info) siguen en el CSS por si se recuperara el desplegable nativo. */
 function estadoClass(v){
   const t = norm(v);
   if(!t) return '';
@@ -1811,12 +1863,59 @@ function prioClass(v){
   if(/REGULAR/.test(t))    return ' prio-regular';
   return '';
 }
+/* El ESTADO: color e icono propios de cada uno, como el diseño aprobado. */
+function estadoClase(v){
+  const t = norm(v);
+  if(!t)                        return ' est-vacio';
+  if(/^AUTORIZADO$/.test(t))    return ' est-autorizado';
+  if(/^PENDIENTE$/.test(t))     return ' est-pendiente';
+  if(/^VERIFICADO$/.test(t))    return ' est-verificado';
+  if(/NO AUTORIZADO/.test(t))   return ' est-noautorizado';
+  if(/COTIZACION/.test(t))      return ' est-cotizacion';
+  if(/GESTIONADO/.test(t))      return ' est-gestionado';
+  if(/AMBULATORIA/.test(t))     return ' est-ambulatoria';
+  if(/EGRESO/.test(t))          return ' est-egreso';
+  if(/SIN GESTION|ANULAD/.test(t)) return ' est-singestion';
+  return ' est-egreso';
+}
+function iconoEstado(v){
+  const t = norm(v);
+  const S = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" ' +
+            'stroke-width="2.9" stroke-linecap="round" stroke-linejoin="round">';
+  if(!t)                       return S + '<path d="M7 12h10"/></svg>';
+  if(/^AUTORIZADO$/.test(t))   return S + '<path d="M5.4 12.7l4.3 4.3 8.9-9.6"/></svg>';
+  if(/^PENDIENTE$/.test(t))    return S + '<circle cx="12" cy="12" r="8.3"/><path d="M12 7.4V12l3 1.9"/></svg>';
+  if(/^VERIFICADO$/.test(t))   return S + '<path d="M12 3.4l6.5 2.7v5.7c0 3.9-2.6 6.8-6.5 8.1-3.9-1.3-6.5-4.2-6.5-8.1V6.1z"/><path d="M9.3 12.2l2 2 3.6-4"/></svg>';
+  if(/NO AUTORIZADO/.test(t))  return S + '<path d="M7.6 7.6l8.8 8.8M16.4 7.6l-8.8 8.8"/></svg>';
+  if(/COTIZACION/.test(t))     return S + '<path d="M7 3.9h6.3L18 8.5v11.6H7z"/><path d="M13.3 3.9v4.6H18M9.7 13h4.8M9.7 16.3h3.2"/></svg>';
+  if(/GESTIONADO/.test(t))     return S + '<circle cx="12" cy="12" r="3"/><path d="M12 3.7v2.1M12 18.2v2.1M4.7 12h2.1M17.2 12h2.1M6.9 6.9l1.5 1.5M15.6 15.6l1.5 1.5M17.1 6.9l-1.5 1.5M8.4 15.6l-1.5 1.5"/></svg>';
+  if(/AMBULATORIA/.test(t))    return S + '<circle cx="12" cy="12" r="8.4"/><path d="M12 8.3v7.4M8.3 12h7.4"/></svg>';
+  if(/EGRESO/.test(t))         return S + '<path d="M4.8 12h13.4M12.8 6.6l5.4 5.4-5.4 5.4"/></svg>';
+  if(/SIN GESTION|ANULAD/.test(t)) return S + '<circle cx="12" cy="12" r="8.3"/><path d="M6.5 17.5L17.5 6.5"/></svg>';
+  return S + '<circle cx="12" cy="12" r="8.3"/></svg>';
+}
+/* fila del menú (una opción) */
+function filaMenuEstado(v){
+  const t = String(v || '').trim();
+  return '<button type="button" class="sel-op' + estadoClase(t) + '" data-v="' + esc(t) + '">' +
+         '<i class="est-ic">' + iconoEstado(t) + '</i>' +
+         '<span class="est-tx">' + (t ? esc(t) : 'Sin estado') + '</span></button>';
+}
 function selectHtml(f, rec){
   const cur = String(rec[f.k] || '').trim();
+  /* El estado va como botón con menú propio: es la única forma de que las
+     opciones lleven su icono y su color, como el diseño aprobado. */
+  if(f.cat === 'estado'){
+    return '<button type="button" class="est-pill' + estadoClase(cur) + '" data-id="' + esc(rec.id) +
+           '" data-field="' + esc(f.k) + '" title="Cambiar ' + esc(f.label) + '">' +
+           '<i class="est-ic">' + iconoEstado(cur) + '</i>' +
+           '<span class="est-tx">' + (cur ? esc(cur) : 'Sin estado') + '</span>' +
+           '<svg class="est-cv" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+           'stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>';
+  }
   const opts = ['<option value="">—</option>'].concat(optsFor(f.cat, cur).map(v =>
     '<option' + (norm(v) === norm(cur) ? ' selected' : '') + '>' + esc(v) + '</option>'));
-  const cls = (f.cat === 'estado')     ? estadoClass(cur)
-            : (f.cat === 'prioridad')  ? prioClass(cur)
+  const cls = (f.cat === 'prioridad')  ? prioClass(cur)
             : (f.cat === 'autorizador')? ' cell-aut' : '';
   return '<select class="cell-sel' + cls + '" data-id="' + esc(rec.id) +
          '" data-field="' + esc(f.k) + '" title="Selecciona ' + esc(f.label) + '">' + opts.join('') + '</select>';
@@ -2354,20 +2453,15 @@ document.addEventListener('change', e => {
   }
 });
 
-/* Desplegables de la tabla (AUTORIZADOR, ESTADO, PRIORIDAD): se cambian ahí mismo.
-   OJO: hay que escribir en el campo que de verdad se cambió (data-field). Antes
+/* ==========================================================================
+   CAMBIO DE UN CAMPO DESDE LA TABLA
+   Lo usan los desplegables normales (AUTORIZADOR, PRIORIDAD) y el menú del
+   ESTADO. Escribe en el campo que de verdad se cambió (data-field): antes
    escribía siempre en «autorizador», así que cambiar el ESTADO metía el texto
-   «AUTORIZADO» dentro del campo AUTORIZADOR. */
-document.addEventListener('change', async e => {
-  const sel = e.target && e.target.closest ? e.target.closest('select.cell-sel') : null;
-  if(!sel) return;
-  const table = sel.closest('table');
-  if(!table) return;
-  const key = table.id === 'table-tq' ? 'tq' : 'no';
-  const rec = state.data[key].find(r => r.id === sel.dataset.id);
-  if(!rec) return;
-  const campo = sel.dataset.field || 'autorizador';        /* el campo real */
-  const nuevo = String(sel.value || '').trim();
+   «AUTORIZADO» dentro del campo AUTORIZADOR.
+   ========================================================================== */
+async function aplicarCambioTabla(key, rec, campo, nuevo){
+  if(!rec || !campo) return;
   if(norm(nuevo) === norm(rec[campo])) return;             /* no cambió nada */
   const antes = Object.assign({}, rec);                    /* copia para comparar */
   rec[campo] = nuevo;
@@ -2378,14 +2472,82 @@ document.addEventListener('change', async e => {
   renderStats(key); renderBody(key); refreshAutFilter(key);
   toast(etiquetaHist(key, campo) + ' de ' + esc(rec.paciente || 'el registro') + ': ' +
         (nuevo ? '<b>' + esc(nuevo) + '</b>' : 'vacío'), 'ok');
-  if(sb.on()){
-    try{
-      await sb.upsert(SCHEMAS[key].table, [rec]);
-      rec._sync = 'synced'; saveData(key); renderBody(key); setStatus();
-      await confirmarRegistro(key, rec.id);
-    }catch(err){ toast('Guardado en el navegador. Supabase: ' + esc(err.message), 'warn'); }
-  }
+  try{
+    await sb.upsert(SCHEMAS[key].table, [rec]);
+    rec._sync = 'synced'; saveData(key); renderBody(key); setStatus();
+    await confirmarRegistro(key, rec.id);
+  }catch(err){ toast('Guardado en el navegador. Supabase: ' + esc(err.message), 'warn'); }
+}
+
+/* Desplegables normales de la tabla */
+document.addEventListener('change', async e => {
+  const sel = e.target && e.target.closest ? e.target.closest('select.cell-sel') : null;
+  if(!sel) return;
+  const table = sel.closest('table');
+  if(!table) return;
+  const key = table.id === 'table-tq' ? 'tq' : 'no';
+  const rec = state.data[key].find(r => r.id === sel.dataset.id);
+  await aplicarCambioTabla(key, rec, sel.dataset.field || 'autorizador', String(sel.value || '').trim());
 });
+
+/* ===== MENÚ DEL ESTADO =====
+   La píldora del estado abre esta lista. Va pegada al body (position:fixed)
+   porque la tabla tiene su propio desplazamiento y dentro quedaría recortada. */
+let menuEstadoAbierto = null;   /* { key, id, campo } del que está abierto */
+
+function cerrarMenuEstado(){
+  const m = $('#sel-menu');
+  if(m && !m.hidden) m.hidden = true;
+  menuEstadoAbierto = null;
+}
+function abrirMenuEstado(pill){
+  const m = $('#sel-menu');
+  const table = pill.closest('table');
+  if(!m || !table) return;
+  const key = table.id === 'table-tq' ? 'tq' : 'no';
+  const rec = state.data[key].find(r => r.id === pill.dataset.id);
+  if(!rec) return;
+  menuEstadoAbierto = { key: key, id: rec.id, campo: pill.dataset.field || 'estado' };
+  const valores = optsFor('estado', rec.estado).slice();
+  m.innerHTML = valores.map(filaMenuEstado).join('') + filaMenuEstado('');
+  /* se resalta en la lista el estado que ya tiene, para no perderse */
+  const actual = norm(rec.estado);
+  m.querySelectorAll('.sel-op').forEach(o => {
+    if(norm(o.dataset.v) === actual) o.classList.add('destacada');
+  });
+  m.hidden = false;
+  /* colocar debajo de la píldora; si no cabe, encima */
+  const r = pill.getBoundingClientRect();
+  const ancho = Math.min(236, Math.max(190, r.width));
+  let left = Math.min(Math.max(8, r.left), window.innerWidth - ancho - 8);
+  m.style.width = ancho + 'px';
+  m.style.left = left + 'px';
+  const alto = m.offsetHeight;
+  let top = r.bottom + 6;
+  if(top + alto > window.innerHeight - 8) top = Math.max(8, r.top - alto - 6);
+  m.style.top = top + 'px';
+}
+/* un solo escuchador para todo: la píldora, las opciones y cerrar al pulsar fuera */
+document.addEventListener('click', async e => {
+  const pill = e.target && e.target.closest ? e.target.closest('.est-pill') : null;
+  if(pill){ e.preventDefault(); abrirMenuEstado(pill); return; }
+  const op = e.target && e.target.closest ? e.target.closest('.sel-op') : null;
+  if(op){
+    const abierto = menuEstadoAbierto;
+    cerrarMenuEstado();
+    if(abierto){
+      const k = abierto.key;
+      const rec = state.data[k].find(r => r.id === abierto.id);
+      await aplicarCambioTabla(k, rec, abierto.campo, String(op.dataset.v || '').trim());
+    }
+    return;
+  }
+  if(menuEstadoAbierto) cerrarMenuEstado();
+});
+/* se cierra si la tabla se desplaza o cambia el tamaño de la ventana, para que
+   no quede flotando lejos de su píldora */
+window.addEventListener('scroll', () => { if(menuEstadoAbierto) cerrarMenuEstado(); }, true);
+window.addEventListener('resize', () => { if(menuEstadoAbierto) cerrarMenuEstado(); });
 function closeModal(id){ $('#' + id).classList.remove('open'); }
 document.addEventListener('click', e => {
   const c = e.target.closest('[data-close]'); if(c) closeModal(c.dataset.close);
