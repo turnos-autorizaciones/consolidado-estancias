@@ -2229,7 +2229,12 @@ function buildToolbar(key){
     /* (el botón «Marcar recibidos» se quitó: la columna de casillas está oculta
        y no tenía sentido marcar algo que ya no se ve) */
     '<span class="spacer"></span>' +
-    '<input class="search" type="search" data-act="q" placeholder="Buscar en ' + esc(s.short) + '…" />' +
+    /* OJO: autocomplete="off" y un name que no parezca un usuario ni un correo.
+       Sin esto, el navegador rellenaba SOLO este buscador con el correo guardado
+       (autorizacioneshospitalarias@…) y el reporte se quedaba en blanco. */
+    '<input class="search" type="search" data-act="q" name="ph-buscar-' + esc(key) + '" ' +
+    'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" ' +
+    'placeholder="Buscar en ' + esc(s.short) + '…" />' +
     '<span class="field-inline">Desde <input type="date" data-act="from" style="width:152px" /></span>' +
     '<span class="field-inline">Hasta <input type="date" data-act="to" style="width:152px" /></span>' +
     '<span class="field-inline">Autorizador <select data-act="aut" style="width:205px"><option value="">Todos</option></select></span>' +
@@ -2239,7 +2244,18 @@ function buildToolbar(key){
   const u = state.ui[key];
   t.addEventListener('input', e => {
     const a = e.target.dataset.act;
-    if(a === 'q'){ u.q = e.target.value; u.limit = 300; renderBody(key); }
+    if(a === 'q'){
+      /* Red de seguridad: si lo que aparece en el buscador es un CORREO, no lo
+         escribió la persona — lo puso el navegador (relleno automático). Con eso
+         el reporte se quedaba sin filas y parecía vacío. Se limpia y se avisa. */
+      if(/@/.test(e.target.value) && /\./.test(e.target.value)){
+        e.target.value = '';
+        u.q = ''; u.limit = 300; renderBody(key);
+        toast('El navegador había rellenado el buscador con un correo. Lo limpié.', 'warn');
+        return;
+      }
+      u.q = e.target.value; u.limit = 300; renderBody(key);
+    }
     if(a === 'from'){ u.from = e.target.value; u.limit = 300; renderBody(key); }
     if(a === 'to'){ u.to = e.target.value; u.limit = 300; renderBody(key); }
   });
