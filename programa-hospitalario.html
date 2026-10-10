@@ -2054,9 +2054,18 @@ function renderBody(key){
   const tb = $('#body-' + key);
   const nomMes = etiquetaMesActual();
   if(!all.length){
-    tb.innerHTML = '<tr><td colspan="' + (campos(key).length + 2 + (key === 'tq' ? 1 : 0)) + '"><div class="empty"><img class="empty-logo" src="' + LOGO_HUSJ + '" alt=""><b>Sin registros ' + esc(s.short) + (nomMes ? ' en ' + esc(nomMes) : '') + '</b>' +
-      (nomMes ? 'El mes de ' + esc(nomMes) + ' todavía no tiene registros. Sube el archivo de ' + esc(nomMes) + ' o cambia el mes en la cabecera.'
-              : 'Sube tu archivo Excel/CSV o crea el primer registro.') + '</div></td></tr>';
+    /* DOS CASOS MUY DISTINTOS, y conviene no confundirlos:
+       · hay registros en otros meses  -> es el mes elegido, y se dice cuál;
+       · no hay NINGÚN registro cargado -> el problema no es el mes, y se avisa
+         de que los datos se cargan de la base (conexión / volver a entrar). */
+    const hayAlguno = state.data[key].length > 0;
+    const titulo = 'Sin registros ' + esc(s.short) + (hayAlguno && nomMes ? ' en ' + esc(nomMes) : '');
+    const detalle = hayAlguno
+      ? (nomMes ? 'El mes de ' + esc(nomMes) + ' todavía no tiene registros. Sube el archivo de ' + esc(nomMes) + ' o cambia el mes en la cabecera.'
+                : 'Sube tu archivo Excel/CSV o crea el primer registro.')
+      : 'No hay ningún registro cargado. Los datos vienen de la base: revisa la conexión y vuelve a entrar. Si acabas de subir un archivo, espera unos segundos.';
+    tb.innerHTML = '<tr><td colspan="' + (campos(key).length + 2 + (key === 'tq' ? 1 : 0)) + '"><div class="empty"><img class="empty-logo" src="' + LOGO_HUSJ + '" alt=""><b>' + titulo + '</b>' +
+      detalle + '</div></td></tr>';
   } else {
     /* i + 1 = número de registro (1, 2, 3...). Se numera en el mismo orden en que
        se muestran y se exportan los registros, así que "Mostrando 300 de 528"
@@ -2584,18 +2593,28 @@ function abrirMenu(pill){
     setTimeout(() => { try{ q.focus(); }catch(e){} }, 0);
   }
   m.hidden = false;
-  /* colocar debajo de la píldora; si no cabe, encima */
+  /* COLOCACIÓN. Lo importante: la lista se abre DEBAJO de la píldora y con una
+     altura limitada. Antes podía crecer hasta 60% de la pantalla y, si no cabía
+     abajo, se abría encima… pero encima está la propia píldora, así que la tapaba
+     a ella y a su columna: parecía que la tabla se había vaciado. */
   const r = pill.getBoundingClientRect();
   const ancho = (campo === 'autorizador')
     ? Math.min(300, Math.max(240, r.width))
     : Math.min(236, Math.max(190, r.width));
-  let left = Math.min(Math.max(8, r.left), window.innerWidth - ancho - 8);
+  const left = Math.min(Math.max(8, r.left), Math.max(8, window.innerWidth - ancho - 8));
   m.style.width = ancho + 'px';
   m.style.left = left + 'px';
-  const alto = m.offsetHeight;
-  let top = r.bottom + 6;
-  if(top + alto > window.innerHeight - 8) top = Math.max(8, r.top - alto - 6);
-  m.style.top = top + 'px';
+  m.style.maxHeight = '';                        /* se mide el alto natural */
+  const natural = m.offsetHeight;
+  const ALTO_MAX = 300, ALTO_MIN = 168;          /* nunca más de 300 px: no tapa la tabla */
+  const huecoAbajo  = window.innerHeight - r.bottom - 12;
+  const huecoArriba = r.top - 12;
+  const cabeAbajo = huecoAbajo >= Math.min(natural, ALTO_MIN);
+  const hueco = cabeAbajo ? huecoAbajo : Math.max(huecoArriba, ALTO_MIN);
+  const alto = Math.max(ALTO_MIN, Math.min(ALTO_MAX, natural, hueco));
+  m.style.maxHeight = alto + 'px';
+  /* solo se abre hacia arriba si de verdad no hay sitio abajo */
+  m.style.top = (cabeAbajo ? (r.bottom + 6) : Math.max(8, r.top - alto - 6)) + 'px';
 }
 /* un solo escuchador para todo: la píldora, las opciones y cerrar al pulsar fuera */
 document.addEventListener('click', async e => {
