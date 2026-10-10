@@ -90,15 +90,25 @@ header.app::after{
 .logo svg{animation:pulse 3.2s infinite ease-in-out}
 @keyframes pulse{0%,100%{transform:scale(1);opacity:.95}50%{transform:scale(1.08);opacity:1}}
 .brand h1{font-size:21px; margin:0; font-weight:700; letter-spacing:.2px}
-/* El mes del consolidado, dentro del título. Se ve como una píldora sobre el azul
-   y se puede cambiar; la elección se recuerda en el navegador. */
+/* El mes y el año del consolidado, juntos en UNA píldora con icono de calendario
+   y flecha, como el diseño aprobado. Se pueden cambiar los dos. */
+.mes-pill{
+  display:inline-flex; align-items:center; gap:6px; vertical-align:middle;
+  margin-left:9px; padding:3px 9px 3px 10px;
+  background:#f4f8fd; border:1px solid #bcd6f0; border-radius:999px;
+  color:#0b4a86; box-shadow:0 1px 3px rgba(0,0,0,.14);
+}
+.mes-pill:hover{background:#fff; border-color:#8fbde8}
+.mes-ico, .mes-chev{display:block; flex:0 0 auto; color:#0b4a86}
+.mes-chev{opacity:.75}
 .hdr-mes{
-  font:inherit; font-size:15px; font-weight:800; color:#fff; width:auto; cursor:pointer;
-  background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.42);
-  border-radius:999px; padding:3px 11px; margin-left:6px; vertical-align:middle;
+  font:inherit; font-size:14.5px; font-weight:800; color:#0b4a86;
+  background:none; border:0; border-radius:0; padding:0; margin:0; vertical-align:middle;
+  width:auto; max-width:132px; cursor:pointer; text-align:left;
   appearance:none; -webkit-appearance:none;
 }
-.hdr-mes:hover{background:rgba(255,255,255,.3)}
+.hdr-anio{max-width:76px; color:#41729f}
+.hdr-mes:focus{outline:none}
 .hdr-mes option{color:#0e2036; background:#fff}
 .brand p{margin:2px 0 0; font-size:13px; color:rgba(255,255,255,.92)}
 .brand p .ver{opacity:.72; font-size:11px; letter-spacing:.3px}
@@ -385,29 +395,32 @@ button.link:hover{color:#01407e}
    (El programa lo sigue actualizando por dentro; simplemente no se muestra.) */
 #chip-status{display:none !important}
 
-/* Tu sesión en la cabecera: círculo con las iniciales + nombre, rol y estado */
+/* Tu sesión en la cabecera: círculo con la silueta, «Hola, nombre» con el punto
+   verde y, debajo, el rol — como el diseño aprobado. */
 .chip.who{
-  max-width:min(300px,48vw); padding:5px 15px 5px 6px; border-radius:999px;
+  max-width:min(330px,52vw); padding:5px 12px 5px 5px; border-radius:999px;
   gap:10px; text-align:left;
 }
 .who-av{
-  width:34px; height:34px; border-radius:50%; flex:0 0 auto;
-  display:grid; place-items:center; font-weight:800; font-size:12.5px;
-  letter-spacing:.5px; color:#fff;
-  background:linear-gradient(140deg,#7ec8ff,#016ad5);
-  box-shadow:0 0 0 2px rgba(255,255,255,.6), 0 4px 12px rgba(0,0,0,.22);
+  width:36px; height:36px; border-radius:50%; flex:0 0 auto;
+  display:grid; place-items:center; color:#fff;
+  border:2px solid rgba(255,255,255,.92); background:transparent;
 }
-.who-txt{display:flex; flex-direction:column; line-height:1.18; min-width:0}
-.who-txt b{font-size:12.5px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.who-txt .rol{font-size:10.5px; opacity:.88}
-.who-txt .estado{display:inline-flex; align-items:center; gap:5px; font-size:10px; opacity:.95}
-.who-txt .estado i{
-  width:7px; height:7px; border-radius:50%; background:#5dffa8;
-  box-shadow:0 0 0 3px rgba(93,255,168,.28);
+.who-txt{display:flex; flex-direction:column; line-height:1.2; min-width:0}
+.who-txt b{
+  display:inline-flex; align-items:center; gap:7px;
+  font-size:13px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
+.who-txt b .on{
+  width:9px; height:9px; border-radius:50%; background:#3fe07d; flex:0 0 auto;
+  box-shadow:0 0 0 3px rgba(63,224,125,.25);
+}
+.who-txt .rol{font-size:11px; color:rgba(255,255,255,.85)}
+.who-chev{flex:0 0 auto; opacity:.85; margin-left:2px}
 @media (max-width:960px){
   .chip.who{padding:5px 6px}
   .who-txt .rol{display:none}
+  .who-chev{display:none}
 }
 
 /* los colores de sección de la propuesta, en las tarjetas de resumen */
@@ -618,6 +631,8 @@ button.link:hover{color:#01407e}
     <div>
       <p class="inst">Hospital Universitario San José · E.S.E. Popayán</p>
       <h1>Consolidado de Estancias:
+        <span class="mes-pill">
+          <svg class="mes-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4.6" width="18" height="15.8" rx="2.6"/><path d="M3 9.4h18M8 3v3.2M16 3v3.2"/></svg>
         <select id="hdr-mes" class="hdr-mes" title="Mes del consolidado" aria-label="Mes del consolidado">
           <option value="01">Enero</option>
           <option value="02">Febrero</option>
@@ -632,7 +647,11 @@ button.link:hover{color:#01407e}
           <option value="11">Noviembre</option>
           <option value="12">Diciembre</option>
         </select>
-        <select id="hdr-anio" class="hdr-mes" title="Año del consolidado" aria-label="Año del consolidado"></select>
+        <select id="hdr-anio" class="hdr-mes hdr-anio" title="Año del consolidado" aria-label="Año del consolidado"></select>
+          <span class="mes-chev" aria-hidden="true">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+          </span>
+        </span>
       </h1>
     </div>
     <div class="hdr-actions">
@@ -644,12 +663,14 @@ button.link:hover{color:#01407e}
         Configuración
       </button>
       <button class="chip who" id="chip-user" title="Tu sesión" style="display:none">
-        <span class="who-av" id="user-initials" aria-hidden="true"></span>
-        <span class="who-txt">
-          <b id="user-name">—</b>
-          <span class="rol" id="user-rol"></span>
-          <span class="estado"><i></i>Activo</span>
+        <span class="who-av" aria-hidden="true">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="7.9" r="3.6"/><path d="M4.7 20.2a7.4 7.4 0 0 1 14.6 0"/></svg>
         </span>
+        <span class="who-txt">
+          <b><i class="on"></i>Hola, <span id="user-name">—</span></b>
+          <span class="rol" id="user-rol"></span>
+        </span>
+        <svg class="who-chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
       </button>
       <button class="chip" id="btn-salir" title="Cerrar sesión" style="display:none">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M16 8l4 4-4 4M20 12H9"/></svg>
@@ -2979,24 +3000,22 @@ init();
     ========================================================================== */
  (function(){
 
-   /* --- 1) iniciales en el círculo --- */
-   var av  = document.getElementById('user-initials');
+   /* --- 1) el nombre, en formato nombre ---
+      El programa guarda el nombre en MAYÚSCULAS («ALEX VELASCO») y en la cabecera
+      se muestra como «Alex Velasco», que es como sale en el diseño aprobado. */
    var nom = document.getElementById('user-name');
-   function iniciales(txt){
-     var p = String(txt || '').trim().split(/\s+/).filter(function(w){ return w && w !== '—'; });
-     if(!p.length) return '';
-     var a = p[0].charAt(0);
-     var b = p.length > 1 ? p[p.length - 1].charAt(0) : '';
-     return (a + b).toUpperCase();
+   function nombreBonito(){
+     if(!nom) return;
+     var t = String(nom.textContent || '');
+     if(!t || t === '—') return;
+     var b = t.toLowerCase().replace(/(^|[\s.,'-])([a-záéíóúüñ])/g,
+       function(m, sep, letra){ return sep + letra.toUpperCase(); });
+     if(b !== t) nom.textContent = b;   /* el observador vuelve a dispararse, pero
+                                           ya no hay cambio: no entra en bucle */
    }
-   function pintarIniciales(){
-     if(!av || !nom) return;
-     av.textContent = iniciales(nom.textContent) || '·';
-   }
-   if(av && nom){
-     /* el nombre puede llegar después de entrar: se observa y se repinta */
-     new MutationObserver(pintarIniciales).observe(nom, {childList:true, characterData:true, subtree:true});
-     pintarIniciales();
+   if(nom){
+     new MutationObserver(nombreBonito).observe(nom, {childList:true, characterData:true, subtree:true});
+     nombreBonito();
    }
 
    /* --- 2) el mes y el año del consolidado ---
