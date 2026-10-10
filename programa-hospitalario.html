@@ -95,26 +95,92 @@ header.app{
 .logo svg{animation:pulse 3.2s infinite ease-in-out}
 @keyframes pulse{0%,100%{transform:scale(1);opacity:.95}50%{transform:scale(1.08);opacity:1}}
 .brand h1{font-size:21px; margin:0; font-weight:700; letter-spacing:.2px}
-/* El mes y el año del consolidado, juntos en UNA píldora con icono de calendario
-   y flecha, como el diseño aprobado. Se pueden cambiar los dos. */
+/* ====== MES Y AÑO DEL CONSOLIDADO: píldora + panel desplegable ======
+   El mes y el año en una píldora con icono de calendario y flecha. Al pulsarla
+   se despliega el panel: el calendario del mes, la lista de meses, la lista de
+   años y el pie. El mes manda sobre la tabla, los contadores y lo que se
+   exporta; el calendario sirve para orientarse y las flechas ‹ › mueven de mes. */
+.mes-pick{position:relative; display:inline-block; vertical-align:middle; margin-left:9px}
 .mes-pill{
-  display:inline-flex; align-items:center; gap:6px; vertical-align:middle;
-  margin-left:9px; padding:3px 9px 3px 10px;
+  display:flex; align-items:center; gap:5px; width:174px;
+  font:inherit; font-size:14.5px; font-weight:800; color:#0b4a86; text-align:left;
+  padding:3px 9px 3px 10px; cursor:pointer;
   background:#f4f8fd; border:1px solid #bcd6f0; border-radius:999px;
-  color:#0b4a86; box-shadow:0 1px 3px rgba(0,0,0,.14);
+  box-shadow:0 1px 3px rgba(0,0,0,.14);
 }
 .mes-pill:hover{background:#fff; border-color:#8fbde8}
+.mes-pill:focus-visible{outline:2px solid #fff; outline-offset:2px}
 .mes-ico, .mes-chev{display:block; flex:0 0 auto; color:#0b4a86}
-.mes-chev{opacity:.75}
-.hdr-mes{
-  font:inherit; font-size:14.5px; font-weight:800; color:#0b4a86;
-  background:none; border:0; border-radius:0; padding:0; margin:0; vertical-align:middle;
-  width:auto; max-width:132px; cursor:pointer; text-align:left;
-  appearance:none; -webkit-appearance:none;
+.mes-chev{opacity:.75; transition:transform .18s}
+.mes-pick.abierto .mes-chev{transform:rotate(180deg)}
+.mes-mes{white-space:nowrap; margin-right:auto}
+.mes-anio{color:#41729f}
+
+/* el panel: una tarjeta blanca con el calendario, las dos listas y el pie */
+.mes-panel{
+  position:absolute; top:calc(100% + 7px); left:0; z-index:70;
+  width:292px; max-width:calc(100vw - 24px);
+  background:#fff; border:1px solid #cfe4fa; border-radius:16px;
+  box-shadow:0 18px 40px rgba(6,49,94,.20);
+  padding:11px 12px 0; color:#0e2036; font-weight:600;
 }
-.hdr-anio{max-width:76px; color:#41729f}
-.hdr-mes:focus{outline:none}
-.hdr-mes option{color:#0e2036; background:#fff}
+.mes-panel[hidden]{display:none}
+/* --- el calendario del mes (solo para orientarse: los días no se pulsan) --- */
+.mp-top{display:flex; align-items:center; justify-content:space-between; padding:0 1px 7px}
+.mp-nav{
+  width:26px; height:26px; display:grid; place-items:center; flex:0 0 auto;
+  border:0; background:none; color:#0b4a86; border-radius:8px; cursor:pointer;
+}
+.mp-nav:hover{background:#eaf3fd}
+.mp-tit{font-size:13.5px; font-weight:800; color:#0b4a86; letter-spacing:.2px}
+.mp-dow, .mp-dias{display:grid; grid-template-columns:repeat(7, 1fr); align-items:center}
+.mp-dow span{font-size:10.5px; font-weight:700; color:#8aa6c2; text-align:center; padding:2px 0 5px}
+.mp-dias span{
+  display:grid; place-items:center; width:27px; height:27px; margin:1px auto;
+  font-size:12px; font-weight:600; color:#0e2036; border-radius:50%;
+}
+.mp-dias span.mp-fuera{color:#c3d4e6}                    /* días del mes de al lado */
+.mp-dias span.mp-hoy{
+  background:#1a73c8; color:#fff; font-weight:800;
+  box-shadow:0 3px 8px rgba(26,115,200,.38);
+}
+/* --- las dos listas: meses y años, con el visto del elegido --- */
+.mp-cols{
+  display:grid; grid-template-columns:1fr 1fr; gap:4px;
+  border-top:1px solid #e6f0fa; margin-top:8px; padding:8px 0 2px;
+}
+.mp-col{max-height:150px; overflow-y:auto; overflow-x:hidden}
+.mp-col::-webkit-scrollbar{width:9px}
+.mp-col::-webkit-scrollbar-thumb{background:#cfe4fa; border-radius:99px}
+.mp-col::-webkit-scrollbar-thumb:hover{background:#a9cdf0}
+.mp-op{
+  display:flex; align-items:center; gap:6px; width:100%;
+  font:inherit; font-size:12.5px; font-weight:600; color:#0e2036; text-align:left;
+  padding:5px 7px; border:0; border-radius:8px; background:none; cursor:pointer;
+}
+.mp-op:hover{background:#eaf3fd}
+.mp-op .mp-visto{margin-left:auto; flex:0 0 auto; color:#1a73c8; opacity:0}
+.mp-op[aria-selected="true"]{background:#eaf3fd; color:#0b4a86; font-weight:800}
+.mp-op[aria-selected="true"] .mp-visto{opacity:1}
+.mp-op:focus-visible{outline:2px solid #8fbde8; outline-offset:-1px}
+/* --- el pie --- */
+.mp-pie{
+  display:flex; align-items:center; gap:5px;
+  border-top:1px solid #e6f0fa; margin-top:6px; padding:9px 1px;
+  font-size:12px; font-weight:700; color:#0b4a86;
+}
+/* el texto del pie no se parte en dos renglones: si no cupiera, se recorta */
+.mp-pie > span{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0}
+.mp-pie svg{flex:0 0 auto}
+.mp-pie .mp-btn{margin-left:auto; flex:0 0 auto}
+.mp-pie .mp-btn + .mp-btn{margin-left:0}
+.mp-btn{
+  font:inherit; font-size:12px; font-weight:700; color:#0b4a86; cursor:pointer;
+  padding:4px 9px; border:1px solid #bcd6f0; border-radius:999px; background:#f4f8fd;
+}
+.mp-btn:hover{background:#fff; border-color:#8fbde8}
+.mp-btn.fuerte{background:#0b4a86; border-color:#0b4a86; color:#fff}
+.mp-btn.fuerte:hover{background:#0d5ca8; border-color:#0d5ca8}
 .brand p{margin:2px 0 0; font-size:13px; color:rgba(255,255,255,.92)}
 .brand p .ver{opacity:.72; font-size:11px; letter-spacing:.3px}
 .hdr-actions{margin-left:auto; display:flex; gap:8px; align-items:center; flex-wrap:wrap}
@@ -745,26 +811,40 @@ button.link:hover{color:#01407e}
     <div>
       <p class="inst">Hospital Universitario San José · E.S.E. Popayán</p>
       <h1>Consolidado de Estancias:
-        <span class="mes-pill">
-          <svg class="mes-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4.6" width="18" height="15.8" rx="2.6"/><path d="M3 9.4h18M8 3v3.2M16 3v3.2"/></svg>
-        <select id="hdr-mes" class="hdr-mes" title="Mes del consolidado" aria-label="Mes del consolidado">
-          <option value="01">Enero</option>
-          <option value="02">Febrero</option>
-          <option value="03">Marzo</option>
-          <option value="04">Abril</option>
-          <option value="05">Mayo</option>
-          <option value="06">Junio</option>
-          <option value="07">Julio</option>
-          <option value="08">Agosto</option>
-          <option value="09">Septiembre</option>
-          <option value="10" selected>Octubre</option>
-          <option value="11">Noviembre</option>
-          <option value="12">Diciembre</option>
-        </select>
-        <select id="hdr-anio" class="hdr-mes hdr-anio" title="Año del consolidado" aria-label="Año del consolidado"></select>
-          <span class="mes-chev" aria-hidden="true">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-          </span>
+        <span class="mes-pick" id="mes-pick">
+          <button type="button" class="mes-pill" id="mes-btn" aria-haspopup="true" aria-expanded="false" title="Mes y año del consolidado">
+            <svg class="mes-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4.6" width="18" height="15.8" rx="2.6"/><path d="M3 9.4h18M8 3v3.2M16 3v3.2"/></svg>
+            <span class="mes-mes" id="mes-btn-mes">Octubre</span>
+            <span class="mes-anio" id="mes-btn-anio">2026</span>
+            <span class="mes-chev" aria-hidden="true">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            </span>
+          </button>
+          <div class="mes-panel" id="mes-panel" hidden>
+            <div class="mp-top">
+              <button type="button" class="mp-nav" id="mp-prev" aria-label="Mes anterior" title="Mes anterior">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+              </button>
+              <span class="mp-tit" id="mp-tit"></span>
+              <button type="button" class="mp-nav" id="mp-next" aria-label="Mes siguiente" title="Mes siguiente">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+              </button>
+            </div>
+            <div class="mp-dow" aria-hidden="true">
+              <span>Lu</span><span>Ma</span><span>Mi</span><span>Ju</span><span>Vi</span><span>Sá</span><span>Do</span>
+            </div>
+            <div class="mp-dias" id="mp-dias" aria-hidden="true"></div>
+            <div class="mp-cols">
+              <div class="mp-col" id="mp-meses" role="listbox" aria-label="Mes"></div>
+              <div class="mp-col" id="mp-anios" role="listbox" aria-label="Año"></div>
+            </div>
+            <div class="mp-pie">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4.6" width="18" height="15.8" rx="2.6"/><path d="M3 9.4h18M8 3v3.2M16 3v3.2"/></svg>
+              <span>Mes del consolidado</span>
+              <button type="button" class="mp-btn" id="mp-hoy">Hoy</button>
+              <button type="button" class="mp-btn fuerte" id="mp-listo">Listo</button>
+            </div>
+          </div>
         </span>
       </h1>
     </div>
@@ -1778,20 +1858,189 @@ function setMesConsolidado(clave){
   const anio = /^\d{4}$/.test(p[0] || '') ? p[0] : '';
   const mes  = /^\d{2}$/.test(p[1] || '') ? p[1] : '';
   KEYS.forEach(k => { state.ui[k].anio = anio; state.ui[k].mes = mes; state.ui[k].limit = 300; });
-  const selM = document.getElementById('hdr-mes'), selA = document.getElementById('hdr-anio');
-  if(selM && mes) selM.value = mes;
-  if(selA && anio){
-    if(!selA.querySelector('option[value="' + anio + '"]')){
-      const o = document.createElement('option'); o.value = anio; o.textContent = anio;
-      selA.appendChild(o);
-    }
-    selA.value = anio;
-  }
   try{
     if(mes)  localStorage.setItem(MES_KEY, mes);
     if(anio) localStorage.setItem(ANIO_KEY, anio);
   }catch(e){}
+  pintarMesPick();                  /* la píldora, el calendario y las dos listas */
   KEYS.forEach(k => renderPanel(k));
+}
+
+/* ====== SELECTOR DE MES Y AÑO (píldora + panel desplegable) ======
+   La píldora de la cabecera abre este panel, que lleva cuatro cosas:
+     · el calendario del mes, para orientarse (los días NO se pulsan);
+     · la lista de meses y la lista de años, con el visto del elegido;
+     · el pie, con el botón «Hoy» para volver al mes en curso.
+   El mes elegido sigue mandando sobre la tabla, los contadores y lo que se
+   exporta. Las flechas ‹ › del calendario mueven de mes, y eso SÍ cambia el
+   filtro: es el mismo gesto que elegir el mes en la lista, así no hay dos
+   sitios que parezcan hacer lo mismo y acaben diciendo cosas distintas. */
+const VISTO_SVG = '<svg class="mp-visto" width="14" height="14" viewBox="0 0 24 24" fill="none" ' +
+  'stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">' +
+  '<path d="M4.5 12.5l5 5 10-11"/></svg>';
+
+function mesElegido(){
+  const u = state.ui.tq || {};
+  const hoy = new Date();
+  const mes  = /^\d{2}$/.test(u.mes  || '') ? u.mes  : String(hoy.getMonth() + 1).padStart(2, '0');
+  const anio = /^\d{4}$/.test(u.anio || '') ? u.anio : String(hoy.getFullYear());
+  return {anio: anio, mes: mes};
+}
+
+/* Los años que se ofrecen: los que hay en los datos, el actual y los cinco
+   siguientes, para poder mirar hacia delante como en el diseño. */
+function aniosDisponibles(){
+  const set = {};
+  KEYS.forEach(k => {
+    (state.data[k] || []).forEach(r => {
+      const c = claveMes(r.fecha); if(c) set[c.slice(0, 4)] = 1;
+    });
+  });
+  const hoy = new Date().getFullYear();
+  for(let i = 0; i <= 5; i++) set[String(hoy + i)] = 1;
+  return Object.keys(set).sort();
+}
+
+/* El calendario del mes elegido: 42 casillas (seis semanas) para que el panel
+   tenga siempre el mismo alto y no dé saltos al cambiar de mes. */
+function pintarDiasMes(){
+  const caja = $('#mp-dias'); if(!caja) return;
+  const el = mesElegido();
+  const anio = Number(el.anio), mes = Number(el.mes);
+  const hueco = (new Date(anio, mes - 1, 1).getDay() + 6) % 7;  /* la semana empieza en lunes */
+  const diasMes = new Date(anio, mes, 0).getDate();
+  const diasAntes = new Date(anio, mes - 1, 0).getDate();
+  const hoy = new Date();
+  let html = '';
+  for(let i = 0; i < 42; i++){
+    const n = i - hueco + 1;
+    let dia, fuera = false;
+    if(n < 1){ dia = diasAntes + n; fuera = true; }          /* cola del mes anterior */
+    else if(n > diasMes){ dia = n - diasMes; fuera = true; } /* principio del siguiente */
+    else dia = n;
+    const esHoy = !fuera && dia === hoy.getDate()
+                  && mes === hoy.getMonth() + 1 && anio === hoy.getFullYear();
+    html += '<span class="' + (fuera ? 'mp-fuera' : '') + (esHoy ? ' mp-hoy' : '') + '">' + dia + '</span>';
+  }
+  caja.innerHTML = html;
+}
+
+function pintarListasMes(){
+  const el = mesElegido();
+  const m = $('#mp-meses');
+  if(m) m.innerHTML = MESES.map((n, i) => {
+    const v = String(i + 1).padStart(2, '0');
+    return '<button type="button" class="mp-op" data-tipo="mes" data-v="' + v + '" role="option" ' +
+      'aria-selected="' + (v === el.mes) + '"><span>' + n + '</span>' + VISTO_SVG + '</button>';
+  }).join('');
+  const a = $('#mp-anios');
+  if(a) a.innerHTML = aniosDisponibles().map(y =>
+    '<button type="button" class="mp-op" data-tipo="anio" data-v="' + y + '" role="option" ' +
+    'aria-selected="' + (y === el.anio) + '"><span>' + y + '</span>' + VISTO_SVG + '</button>').join('');
+}
+
+function pintarMesPick(){
+  const el = mesElegido();
+  const m = $('#mes-btn-mes'), a = $('#mes-btn-anio'), t = $('#mp-tit');
+  if(m) m.textContent = MESES[Number(el.mes) - 1];
+  if(a) a.textContent = el.anio;
+  if(t) t.textContent = MESES[Number(el.mes) - 1] + ' ' + el.anio;
+  pintarDiasMes();
+  pintarListasMes();
+}
+
+/* El panel se abre justo debajo de la píldora y nunca se sale de la pantalla. */
+function colocarMesPanel(){
+  const panel = $('#mes-panel'), pick = $('#mes-pick');
+  if(!panel || !pick || panel.hidden) return;
+  panel.style.left = '0';
+  const r = panel.getBoundingClientRect();
+  let dx = 0;
+  const sobraDcha = r.right - (window.innerWidth - 12);
+  if(sobraDcha > 0) dx = -sobraDcha;
+  const sobraIzq = (r.left + dx) - 8;
+  if(sobraIzq < 0) dx -= sobraIzq;
+  panel.style.left = Math.round(dx) + 'px';
+}
+
+function abrirMesPick(abrir){
+  const panel = $('#mes-panel'), btn = $('#mes-btn'), pick = $('#mes-pick');
+  if(!panel || !btn) return;
+  const quiere = (typeof abrir === 'boolean') ? abrir : panel.hidden;
+  panel.hidden = !quiere;
+  if(pick) pick.classList.toggle('abierto', quiere);
+  btn.setAttribute('aria-expanded', quiere ? 'true' : 'false');
+  if(!quiere) return;
+  pintarMesPick();
+  colocarMesPanel();
+  /* El mes y el año elegidos, a la vista dentro de su lista. Se mide con rects y
+     no con offsetTop: offsetTop se cuenta desde el panel (que sí está
+     posicionado), no desde la lista, y con esa cuenta la lista se iba al final y
+     el año elegido quedaba cortado arriba. Si ya se ve, no se toca. */
+  ['#mp-meses', '#mp-anios'].forEach(s => {
+    const caja = $(s); if(!caja) return;
+    const op = caja.querySelector('[aria-selected="true"]'); if(!op) return;
+    const rc = caja.getBoundingClientRect(), ro = op.getBoundingClientRect();
+    if(ro.top < rc.top || ro.bottom > rc.bottom){
+      caja.scrollTop += Math.round(ro.top - rc.top - (rc.height - ro.height) / 2);
+    }
+  });
+}
+
+/* Mover de mes con ‹ ›: la misma acción que elegirlo en la lista, así el
+   calendario y el filtro nunca se contradicen. */
+function moverMes(delta){
+  const el = mesElegido();
+  const d = new Date(Number(el.anio), Number(el.mes) - 1 + delta, 1);
+  setMesConsolidado(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
+  colocarMesPanel();
+}
+
+function initMesPick(){
+  const btn = $('#mes-btn'), panel = $('#mes-panel');
+  if(!btn || !panel) return;
+  /* Manda lo guardado en este navegador. Si no hay nada guardado se abre en el
+     MES EN CURSO (no en un mes fijo): así, dentro de un año, no se abrirá en un
+     mes viejo. Se aplica desde el arranque, como se hacía antes. */
+  let gm = null, ga = null;
+  try{ gm = localStorage.getItem(MES_KEY); ga = localStorage.getItem(ANIO_KEY); }catch(e){}
+  const h = new Date();
+  setMesConsolidado((/^\d{4}$/.test(ga || '') ? ga : String(h.getFullYear())) + '-' +
+                    (/^\d{2}$/.test(gm || '') ? gm : String(h.getMonth() + 1).padStart(2, '0')));
+  btn.addEventListener('click', () => abrirMesPick());
+  const prev = $('#mp-prev'), next = $('#mp-next');
+  if(prev) prev.addEventListener('click', () => moverMes(-1));
+  if(next) next.addEventListener('click', () => moverMes(1));
+  const hoy = $('#mp-hoy');
+  if(hoy) hoy.addEventListener('click', () => {
+    const h = new Date();
+    setMesConsolidado(h.getFullYear() + '-' + String(h.getMonth() + 1).padStart(2, '0'));
+    colocarMesPanel();
+  });
+  const listo = $('#mp-listo');
+  if(listo) listo.addEventListener('click', () => abrirMesPick(false));
+  const cols = panel.querySelector('.mp-cols');
+  if(cols) cols.addEventListener('click', e => {
+    const op = e.target.closest('.mp-op'); if(!op) return;
+    const el = mesElegido();
+    const anio = op.dataset.tipo === 'anio' ? op.dataset.v : el.anio;
+    const mes  = op.dataset.tipo === 'mes'  ? op.dataset.v : el.mes;
+    setMesConsolidado(anio + '-' + mes);
+    colocarMesPanel();
+  });
+  /* Clic fuera y Escape cierran; el panel se recoloca al cambiar el tamaño.
+     OJO con la fase: va en CAPTURA a propósito. Al elegir un mes o un año se
+     vuelve a pintar la lista, y el botón que se pulsó deja de estar en la
+     página; si se mirara al final (fase de burbuja) ya no se podría saber si el
+     clic venía de dentro y el panel se cerraba solo al elegir. */
+  document.addEventListener('click', e => {
+    if(panel.hidden) return;
+    const pick = $('#mes-pick');
+    if(pick && !pick.contains(e.target)) abrirMesPick(false);
+  }, true);
+  document.addEventListener('keydown', e => { if(e.key === 'Escape') abrirMesPick(false); });
+  window.addEventListener('resize', () => colocarMesPanel());
+  pintarMesPick();
 }
 
 function rowsOf(key){
@@ -3319,6 +3568,7 @@ function init(){
   setInterval(limpiarRellenoDelNavegador, 800);
   window.addEventListener('pageshow', () => limpiarRellenoDelNavegador());
   document.addEventListener('visibilitychange', () => { if(!document.hidden) limpiarRellenoDelNavegador(); });
+  initMesPick();          /* el selector de mes y año de la cabecera */
   fillCatSelect();
   $('#cfg-url').value = state.cfg.url || '';
   $('#cfg-key').value = state.cfg.key || '';
@@ -3443,14 +3693,13 @@ init();
 <script>
 /* ==========================================================================
     AJUSTES DE LA CABECERA — bloque aparte
-    Va separado para no mezclarlo con el programa. Hace dos cosas:
-      1) Rellena el círculo del usuario con sus iniciales (el nombre lo escribe el
-         programa en #user-name; aquí solo se leen sus primeras letras).
-      2) Mantiene los selectores de MES y AÑO del consolidado: los rellena, los
-         recuerda en este navegador y pide al programa que vuelva a pintar.
-         (MES_KEY, ANIO_KEY, claveMes y setMesConsolidado son del programa.)
-    Si algo fallara, el programa sigue funcionando igual: esto no participa en
-    el guardado, la sincronización ni el acceso.
+     Va separado para no mezclarlo con el programa. Hace una cosa:
+       Rellena el círculo del usuario con sus iniciales (el nombre lo escribe el
+       programa en #user-name; aquí solo se leen sus primeras letras).
+     El selector de MES y AÑO ya no vive aquí: ahora es el panel desplegable de
+     la cabecera y lo lleva el propio programa (ver initMesPick()).
+     Si algo fallara, el programa sigue funcionando igual: esto no participa en
+     el guardado, la sincronización ni el acceso.
     ========================================================================== */
  (function(){
 
@@ -3472,58 +3721,11 @@ init();
      nombreBonito();
    }
 
-   /* --- 2) el mes y el año del consolidado ---
-      OJO: esto NO es solo visual. El mes elegido manda sobre la tabla, sobre los
-      contadores y sobre lo que se exporta (ver claveActual() en el programa).
-      Con «Septiembre» y sin datos de septiembre, no se muestra nada: es correcto.
-      El año separa, por ejemplo, octubre de 2026 de octubre de 2027. */
-   var selM = document.getElementById('hdr-mes');
-   var selA = document.getElementById('hdr-anio');
-
-   function pintarAnios(){
-     if(!selA) return;
-     var años = {};
-     /* los años que hay en los datos + el año en curso */
-     ['tq','no'].forEach(function(k){
-       (state.data[k] || []).forEach(function(r){
-         var c = claveMes(r.fecha); if(c) años[c.slice(0, 4)] = 1;
-       });
-     });
-     años[String(new Date().getFullYear())] = 1;
-     var lista = Object.keys(años).sort().reverse();
-     var elegido = selA.value;
-     selA.innerHTML = lista.map(function(a){
-       return '<option value="' + a + '">' + a + '</option>';
-     }).join('');
-     selA.value = (elegido && lista.indexOf(elegido) >= 0) ? elegido : (lista[0] || '');
-   }
-
-   function aplicarMes(){
-     try{
-       if(!selM) return;
-       var anio = (selA && selA.value) ? selA.value : String(new Date().getFullYear());
-       setMesConsolidado(anio + '-' + (selM.value || '10'));
-     }catch(e){
-       if(window.console) console.warn('No se pudo aplicar el mes del consolidado:', e);
-     }
-   }
-
-    if(selM){
-      pintarAnios();
-      var gm = null, ga = null;
-      try{ gm = localStorage.getItem(MES_KEY); ga = localStorage.getItem(ANIO_KEY); }catch(e){}
-      /* Manda lo guardado en este navegador. Si no hay nada guardado, se abre en el
-         MES EN CURSO (hoy: octubre), no en un mes fijo: así, dentro de un año, no se
-         abrirá en un mes viejo. */
-      selM.value = /^\d{2}$/.test(gm || '')
-        ? gm
-        : String(new Date().getMonth() + 1).padStart(2, '0');
-      if(selA && /^\d{4}$/.test(ga || '')) selA.value = ga;
-      if(selA && !selA.value) selA.value = String(new Date().getFullYear());
-      selM.addEventListener('change', aplicarMes);
-      if(selA) selA.addEventListener('change', aplicarMes);
-      aplicarMes();                                    /* se aplica desde el arranque */
-    }
+    /* --- 2) el mes y el año del consolidado ---
+       Esto ya no vive aquí: ahora es el panel desplegable de la cabecera (el
+       calendario, la lista de meses y la de años) y lo lleva el propio programa
+       en initMesPick(). No se deja nada duplicado a propósito: si esta parte
+       siguiera, el mes elegido se aplicaría dos veces y el panel parpadearía. */
  })();
 </script>
 </body>
