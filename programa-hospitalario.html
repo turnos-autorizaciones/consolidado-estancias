@@ -70,12 +70,17 @@ body{display:flex; flex-direction:column; min-height:100vh}
 
 /* ============ ENCABEZADO ============ */
 header.app{
-  position:relative; overflow:hidden; border-radius:0 0 var(--radius) var(--radius);
+  /* OJO: overflow visible — el menú de la flecha del usuario tiene que poder
+     salir por debajo de la cabecera. El brillo que la recorre va dentro de
+     .hdr-glow, que sí recorta, para que no se escape por la pantalla. */
+  position:relative; overflow:visible; border-radius:0 0 var(--radius) var(--radius);
   background:var(--grad); color:#fff; margin:0 0 18px;
   padding:22px 24px 18px; padding:22px var(--pad) 18px;
   box-shadow:var(--shadow);
 }
-header.app::after{
+/* la franja de luz que recorre la cabecera, recortada dentro de su caja */
+.hdr-glow{position:absolute; inset:0; overflow:hidden; pointer-events:none; border-radius:inherit}
+.hdr-glow::after{
   content:""; position:absolute; top:0; left:-40%; width:40%; height:100%;
   background:linear-gradient(100deg,transparent,rgba(255,255,255,.28),transparent);
   animation:shimmer 6.5s infinite ease-in-out;
@@ -417,6 +422,23 @@ button.link:hover{color:#01407e}
 }
 .who-txt .rol{font-size:11px; color:rgba(255,255,255,.85)}
 .who-chev{flex:0 0 auto; opacity:.85; margin-left:2px}
+/* el menú que abre la flecha del usuario: Configuración y Salir */
+.who-wrap{position:relative; display:inline-flex; align-items:center}
+.who-menu{
+  position:absolute; top:calc(100% + 8px); right:0; z-index:60;
+  min-width:190px; padding:6px; display:flex; flex-direction:column;
+  background:var(--card); border:1px solid var(--line); border-radius:14px;
+  box-shadow:0 18px 42px rgba(6,32,64,.3);
+}
+.who-menu[hidden]{display:none}
+.who-item{
+  display:flex; align-items:center; gap:9px; width:100%; text-align:left;
+  font:inherit; font-size:13px; font-weight:700; color:var(--ink);
+  background:none; border:0; border-radius:9px; padding:9px 11px; cursor:pointer;
+}
+.who-item:hover{background:#eef6ff}
+.who-item svg{flex:0 0 auto; color:var(--purple)}
+.who-sep{border-top:1px solid var(--line); margin:4px 3px}
 @media (max-width:960px){
   .chip.who{padding:5px 6px}
   .who-txt .rol{display:none}
@@ -626,6 +648,7 @@ button.link:hover{color:#01407e}
 <body>
 
 <header class="app">
+  <span class="hdr-glow" aria-hidden="true"></span>
   <div class="brand">
     <div class="logo"><img data-logo alt="Hospital Universitario San José · E.S.E. Popayán"></div>
     <div>
@@ -658,11 +681,8 @@ button.link:hover{color:#01407e}
       <button class="chip" id="chip-status" title="Estado del almacenamiento">
         <span class="dot off" id="status-dot"></span><span id="status-text">Local (navegador)</span>
       </button>
-      <button class="chip" id="btn-config">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6h.1A2 2 0 1 1 13 4.6V5a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
-        Configuración
-      </button>
-      <button class="chip who" id="chip-user" title="Tu sesión" style="display:none">
+      <div class="who-wrap" id="who-wrap" style="display:none">
+      <button class="chip who" id="chip-user" title="Tu sesión" aria-haspopup="true" aria-expanded="false">
         <span class="who-av" aria-hidden="true">
           <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="7.9" r="3.6"/><path d="M4.7 20.2a7.4 7.4 0 0 1 14.6 0"/></svg>
         </span>
@@ -672,10 +692,18 @@ button.link:hover{color:#01407e}
         </span>
         <svg class="who-chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
       </button>
-      <button class="chip" id="btn-salir" title="Cerrar sesión" style="display:none">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M16 8l4 4-4 4M20 12H9"/></svg>
-        Salir
-      </button>
+        <div class="who-menu" id="who-menu" hidden>
+          <button class="who-item" id="mn-config">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6h.1A2 2 0 1 1 13 4.6V5a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+            Configuración
+          </button>
+          <div class="who-sep"></div>
+          <button class="who-item" id="mn-salir">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M16 8l4 4-4 4M20 12H9"/></svg>
+            Salir
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </header>
@@ -2599,7 +2627,7 @@ function guardarSesion(d, ced, extra){
   return s;
 }
 function pintarUsuario(){
-  const s = sesion(), b = $('#chip-user'), out = $('#btn-salir');
+  const s = sesion(), b = $('#chip-user'), caja = $('#who-wrap');
   if(!b) return;
   const hay = !!(s && s.nombre);
   if(hay){
@@ -2607,8 +2635,10 @@ function pintarUsuario(){
     const r = $('#user-rol'); if(r) r.textContent = s.rol || '';
     b.title = s.nombre + ' · ' + (s.rol || '') + ' · cédula ' + (s.cedula || '');
   }
-  b.style.display = hay ? '' : 'none';
-  if(out) out.style.display = hay ? '' : 'none';
+  /* se enseña u oculta el bloque entero (el círculo y su menú) */
+  if(caja) caja.style.display = hay ? '' : 'none';
+  else b.style.display = hay ? '' : 'none';
+  const menu = $('#who-menu'); if(menu) menu.hidden = true;
 }
 async function sbAuth(path, body){
   if(!sb.on()) throw new Error('Falta configurar la conexión con Supabase.');
@@ -2901,7 +2931,26 @@ function init(){
   /* El botón Sincronizar se quitó: los cambios se suben solos al guardar y la
      sincronización va de fondo. Si algún día se quisiera recuperar, basta con
      volver a poner el botón y esta línea: $('#btn-sync').onclick = () => syncAll(false); */
-  $('#btn-config').onclick = () => openPanel('config');
+  /* --- menú del usuario (la flecha de «Hola, …»): Configuración y Salir --- */
+  function abrirMenuUsuario(abrir){
+    const m = $('#who-menu'), b = $('#chip-user');
+    if(!m) return;
+    m.hidden = !abrir;
+    if(b) b.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+  }
+  const chipU = $('#chip-user');
+  if(chipU) chipU.onclick = e => {
+    e.stopPropagation();
+    abrirMenuUsuario($('#who-menu').hidden);
+  };
+  if($('#mn-config')) $('#mn-config').onclick = () => { abrirMenuUsuario(false); openPanel('config'); };
+  if($('#mn-salir'))  $('#mn-salir').onclick  = () => { abrirMenuUsuario(false); cerrarSesion(); };
+  /* se cierra al pulsar en cualquier otro sitio o con Escape */
+  document.addEventListener('click', e => {
+    const m = $('#who-menu');
+    if(m && !m.hidden && !(e.target && e.target.closest && e.target.closest('#who-wrap'))) abrirMenuUsuario(false);
+  });
+  document.addEventListener('keydown', e => { if(e.key === 'Escape') abrirMenuUsuario(false); });
   $('#chip-status').onclick = () => openPanel('config');
   $('#cat-save').onclick   = saveCat;
   $('#cat-reload').onclick = loadCatToText;
@@ -2927,7 +2976,7 @@ function init(){
   $('#gate-save').onclick  = gateSave;
   $('#gate-enter').onclick = gateEnter;
   $('#gate-toggle').onclick = gateToggle;
-  $('#btn-salir').onclick = cerrarSesion;
+  /* (Salir y Configuración pasaron al menú de la flecha del usuario) */
    ['gate-in-ced','gate-in-pass','gate-reg-codigo','gate-reg-ced','gate-reg-pass','gate-reg-pass2'].forEach(id => {
     const el = document.getElementById(id);
     if(el) el.addEventListener('keydown', e => { if(e.key === 'Enter') gateEnter(); });
