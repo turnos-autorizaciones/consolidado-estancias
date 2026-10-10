@@ -1872,6 +1872,7 @@ async function toggleFisico(key, id){
     try{
       await sb.upsert(SCHEMAS[key].table, [r]);
       r._sync = 'synced'; saveData(key); renderBody(key);
+      await confirmarRegistro(key, r.id);
     }catch(err){ toast('Guardado en el navegador. Supabase: ' + esc(err.message), 'warn'); }
   }
 }
@@ -1918,6 +1919,7 @@ async function marcarLote(key){
       await sb.upsert(SCHEMAS[key].table, cambiados);
       cambiados.forEach(r => { r._sync = 'synced'; });
       saveData(key); renderBody(key); setStatus();
+      await confirmarVarios(key, ids);
     }catch(err){ toast('Marcado en el navegador. Supabase: ' + esc(err.message), 'warn'); }
   }
 }
@@ -2046,32 +2048,7 @@ function openForm(key, id){
      Lo escribe el SERVIDOR dentro del propio registro (columna «historial»): aquí
      solo se muestra, del cambio más reciente al más antiguo. La aplicación no
      puede escribir ni borrar estas líneas. */
-  const hs = $('#form-hist');
-  if(hs){
-    if(!rec){
-      hs.innerHTML = '';                     /* al crear todavía no hay historial */
-    } else {
-      const lineas = Array.isArray(rec.historial) ? rec.historial.slice().reverse() : [];
-      const valor = v => (v == null || String(v).trim() === '')
-        ? '<i class="hist-vacio">(vacío)</i>' : '<b>' + esc(v) + '</b>';
-      const detalle = x => {
-        const campo = String(x.campo || '');
-        if(campo.toUpperCase() === 'CREACIÓN'){
-          const ini = String(x.despues == null ? '' : x.despues).trim();
-          return 'Registro creado' + (ini ? ' · estado inicial ' + valor(x.despues) : '');
-        }
-        return '<b>' + esc(campo) + '</b>: ' + valor(x.antes) + ' → ' + valor(x.despues);
-      };
-      hs.innerHTML = '<h4 class="hist-t">Historial del trámite</h4>' + (lineas.length
-        ? '<ul class="hist-l">' + lineas.map(x =>
-            '<li><span class="hist-when">' + esc(fmtSello(x.cuando)) + '</span>' +
-            '<span class="hist-who">' + esc(x.quien || 'sin sesión') +
-              (x.local ? ' <i class="hist-local">(sin confirmar)</i>' : '') + '</span>' +
-            '<span class="hist-what">' + detalle(x) + '</span></li>').join('') + '</ul>'
-        : '<p class="hint">Este turno no tiene cambios de trámite registrados.<br>' +
-          'El historial empezó a registrarse el 10/10/2026: los turnos anteriores a esa fecha no lo tienen.</p>');
-    }
-  }
+  pintarHistorial(rec);
   $('#modal-form').classList.add('open');
   setTimeout(() => { const i = g.querySelector('input,textarea'); if(i) i.focus(); }, 70);
 }
@@ -2120,6 +2097,39 @@ function anotarHistorial(key, rec, antes){
   rec.historial = previas.concat(lineas);
   return rec.historial;
 }
+/* Pinta el bloque del historial dentro del formulario. Se usa al abrirlo y
+   también cuando llega la confirmación del servidor con el formulario abierto:
+   así «(sin confirmar)» desaparece solo, sin cerrar y volver a abrir. */
+function pintarHistorial(rec){
+  const hs = $('#form-hist');
+  if(!hs) return;
+  if(!rec){ hs.innerHTML = ''; return; }     /* al crear todavía no hay historial */
+  const lineas = Array.isArray(rec.historial) ? rec.historial.slice().reverse() : [];
+  const valor = v => (v == null || String(v).trim() === '')
+    ? '<i class="hist-vacio">(vacío)</i>' : '<b>' + esc(v) + '</b>';
+  const detalle = x => {
+    const campo = String(x.campo || '');
+    if(campo.toUpperCase() === 'CREACIÓN'){
+      const ini = String(x.despues == null ? '' : x.despues).trim();
+      return 'Registro creado' + (ini ? ' · estado inicial ' + valor(x.despues) : '');
+    }
+    return '<b>' + esc(campo) + '</b>: ' + valor(x.antes) + ' → ' + valor(x.despues);
+  };
+  hs.innerHTML = '<h4 class="hist-t">Historial del trámite</h4>' + (lineas.length
+    ? '<ul class="hist-l">' + lineas.map(x =>
+        '<li><span class="hist-when">' + esc(fmtSello(x.cuando)) + '</span>' +
+        '<span class="hist-who">' + esc(x.quien || 'sin sesión') +
+          (x.local ? ' <i class="hist-local">(sin confirmar)</i>' : '') + '</span>' +
+        '<span class="hist-what">' + detalle(x) + '</span></li>').join('') + '</ul>'
+    : '<p class="hint">Este turno no tiene cambios de trámite registrados.<br>' +
+      'El historial empezó a registrarse el 10/10/2026: los turnos anteriores a esa fecha no lo tienen.</p>');
+}
+/* ¿Está abierto el formulario justo de ese registro? */
+function formAbiertoCon(id){
+  const m = $('#modal-form');
+  return !!(m && m.classList.contains('open') && state.editing && state.editing.id === id);
+}
+
 /* Primera línea de un registro nuevo. */
 function anotarCreacion(key, rec){
   rec.historial = [{campo:'CREACIÓN', antes:null,
@@ -2166,6 +2176,7 @@ async function commit(key, rec){
     try{
       await sb.upsert(SCHEMAS[key].table, [rec]);
       rec._sync = 'synced'; saveData(key); renderBody(key); setStatus();
+      await confirmarRegistro(key, rec.id);   /* deja el historial ya confirmado */
     }catch(err){
       toast('Guardado en el navegador. Supabase respondió: ' + esc(err.message), 'warn');
     }
@@ -2246,6 +2257,7 @@ document.addEventListener('change', async e => {
     try{
       await sb.upsert(SCHEMAS[key].table, [rec]);
       rec._sync = 'synced'; saveData(key); renderBody(key); setStatus();
+      await confirmarRegistro(key, rec.id);
     }catch(err){ toast('Guardado en el navegador. Supabase: ' + esc(err.message), 'warn'); }
   }
 });
@@ -2362,6 +2374,50 @@ async function checkTables(){
     note.innerHTML = 'Tablas <b>TQ</b> y <b>N.O.</b> disponibles en el proyecto configurado.';
   }
 }
+/* ==========================================================================
+   GUARDADO AUTOMÁTICO · confirmar al instante lo que se acaba de guardar
+   Cada cambio YA se envía solo a Supabase (no hay que pulsar nada). Lo que
+   faltaba: en cuanto el envío va bien, el programa relee ESE registro, para que
+   las líneas del historial pasen de «(sin confirmar)» a confirmadas enseguida,
+   sin tener que pulsar Sincronizar.
+   Si esto fallara, no se avisa: el registro queda pendiente y lo resolverá el
+   siguiente guardado o la sincronización de fondo.
+   ========================================================================== */
+async function confirmarRegistro(key, id){
+  if(!sb.on() || !id) return false;
+  try{
+    const rows = await sb.req('/rest/v1/' + SCHEMAS[key].table + '?select=*&id=eq.' +
+                              encodeURIComponent(id) + '&limit=1');
+    const rr  = Array.isArray(rows) ? rows[0] : null;
+    const loc = rr ? state.data[key].find(r => r.id === id) : null;
+    if(!loc) return false;
+    Object.assign(loc, rr, {_sync: 'synced'});
+    saveData(key); renderStats(key); renderBody(key); setStatus();
+    /* si ese turno está abierto en el formulario, el historial se repinta solo */
+    if(formAbiertoCon(id)) pintarHistorial(loc);
+    return true;
+  }catch(err){ return false; }          /* silencio a propósito */
+}
+async function confirmarVarios(key, ids){
+  if(!sb.on() || !ids.length) return 0;
+  try{
+    const list = ids.map(i => '"' + i + '"').join(',');
+    const rows = await sb.req('/rest/v1/' + SCHEMAS[key].table + '?select=*&id=in.(' +
+                              encodeURIComponent(list) + ')');
+    let n = 0, abierto = null;
+    (Array.isArray(rows) ? rows : []).forEach(rr => {
+      const loc = state.data[key].find(r => r.id === rr.id);
+      if(loc){
+        Object.assign(loc, rr, {_sync: 'synced'}); n++;
+        if(formAbiertoCon(loc.id)) abierto = loc;
+      }
+    });
+    if(n){ saveData(key); renderStats(key); renderBody(key); setStatus(); }
+    if(abierto) pintarHistorial(abierto);
+    return n;
+  }catch(err){ return 0; }              /* silencio a propósito */
+}
+
 async function syncAll(silent){
   if(!sb.on()){
     if(!silent){ toast('Aún no hay Supabase configurado: todo se guarda en este navegador.','warn'); openPanel('config'); }
@@ -2379,16 +2435,24 @@ async function syncAll(silent){
       catch(err){ throw new Error(SCHEMAS[k].short + ': ' + err.message); }
       const byId = {};
       state.data[k].forEach(r => { byId[r.id] = r; });
+      let toco = false;
       remote.forEach(rr => {
         const loc = byId[rr.id];
-        if(!loc){ state.data[k].push(Object.assign({_sync:'synced'}, rr)); pulled++; }
-        else if(!isPending(loc) && String(rr.updated_at || '') > String(loc.updated_at || '')){ Object.assign(loc, rr, {_sync:'synced'}); pulled++; }
+        if(!loc){ state.data[k].push(Object.assign({_sync:'synced'}, rr)); pulled++; toco = true; }
+        else if(!isPending(loc) && String(rr.updated_at || '') > String(loc.updated_at || '')){ Object.assign(loc, rr, {_sync:'synced'}); pulled++; toco = true; }
       });
-      saveData(k); renderPanel(k);
+      /* solo se vuelve a pintar si de verdad llegó algo: así la pantalla no
+         parpadea cada vez que la sincronización de fondo no encuentra cambios */
+      if(toco){ saveData(k); renderPanel(k); }
     }
     setStatus();
-    toast('Sincronización: ' + pushed + ' enviado(s), ' + pulled + ' recibido(s)/actualizado(s).','ok');
-  }catch(err){ toast('No se pudo sincronizar. ' + esc(err.message),'bad'); }
+    /* De fondo: sin avisos. A quien está trabajando no hay que molestarlo con
+       mensajes de algo que ya ocurre solo. Lo que falle, a la consola. */
+    if(!silent) toast('Sincronización: ' + pushed + ' enviado(s), ' + pulled + ' recibido(s)/actualizado(s).','ok');
+  }catch(err){
+    if(silent){ if(window.console) console.warn('Sincronización de fondo:', err.message); }
+    else toast('No se pudo sincronizar. ' + esc(err.message),'bad');
+  }
 }
 function wipeLocal(){
   if(!confirm('¿Borrar TODOS los registros guardados en este navegador?\n\nNo borra lo que esté en Supabase. Si hay registros sin sincronizar, se perderán.')) return;
@@ -2849,6 +2913,27 @@ function init(){
          conserva lo guardado: la entrada ya se validó cuando se inició sesión. */
       try{ await refrescarIdentidad(); }catch(e){ /* se conserva lo guardado */ }
       setTimeout(() => syncAll(true), 900);
+
+      /* ============ SINCRONIZACIÓN DE FONDO · sin pulsar nada ============
+         Cada 3 minutos —y también al volver a esta pestaña— el programa trae lo
+         que hayan cambiado los demás y sube lo que quedara pendiente. Ya no hace
+         falta el botón Sincronizar para el trabajo del día a día.
+         Va en silencio: no avisa ni repinta si no hay novedades, y se salta
+         cuando la pestaña está en segundo plano para no gastar datos. */
+      if(!window.__phAutoSync){
+        window.__phAutoSync = setInterval(() => {
+          if(document.visibilityState !== 'visible') return;
+          if(!sb.on() || !state.token) return;
+          syncAll(true);
+        }, 180000);
+        document.addEventListener('visibilitychange', () => {
+          if(document.visibilityState !== 'visible') return;
+          const ahora = Date.now();
+          if(window.__phAutoSyncT && (ahora - window.__phAutoSyncT) < 60000) return;
+          window.__phAutoSyncT = ahora;
+          if(sb.on() && state.token) syncAll(true);
+        });
+      }
     })();
   }
 }
