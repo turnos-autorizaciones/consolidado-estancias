@@ -217,14 +217,26 @@ textarea{min-height:74px; resize:vertical}
 .spacer{flex:1 1 auto}
 
 /* stats */
-.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:11px; margin-bottom:14px}
+.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(158px,1fr)); gap:11px; margin-bottom:14px}
+/* Contadores: tarjeta con fondo tenue, círculo de color con su icono, la cifra
+   grande y el rótulo debajo, todo en el color de cada uno. */
 .stat{
-  background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px 13px;
-  box-shadow:0 4px 14px rgba(3,41,80,.05); position:relative; overflow:hidden;
+  display:flex; align-items:center; gap:11px;
+  border:0; border-radius:14px; padding:11px 13px;
+  box-shadow:0 4px 14px rgba(3,41,80,.06);
 }
-.stat::before{content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--grad)}
-.stat b{display:block; font-size:22px; font-weight:700; line-height:1.15}
-.stat span{font-size:12px; color:var(--ink-soft); font-weight:600; text-transform:uppercase; letter-spacing:.4px}
+.stat .st-ic{
+  width:42px; height:42px; border-radius:50%; flex:0 0 auto;
+  display:grid; place-items:center; color:#fff;
+}
+.stat .st-tx{display:flex; flex-direction:column; line-height:1.12; min-width:0}
+.stat b{display:block; font-size:23px; font-weight:800; line-height:1.1}
+.stat span{font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.3px}
+.s-azul  {background:#e9f3fd} .s-azul  .st-ic{background:#0b5aa8} .s-azul  b,.s-azul  span{color:#0b5aa8}
+.s-verde {background:#e6f7ec} .s-verde .st-ic{background:#16a34a} .s-verde b,.s-verde span{color:#127a42}
+.s-morado{background:#eee9fb} .s-morado .st-ic{background:#7c3aed} .s-morado b,.s-morado span{color:#5b21b6}
+.s-ambar {background:#fdf3dd} .s-ambar .st-ic{background:#f0a300} .s-ambar b,.s-ambar span{color:#95650a}
+.s-rojo  {background:#fdeaef} .s-rojo  .st-ic{background:#e11d48} .s-rojo  b,.s-rojo  span{color:#bd1a3f}
 
 /* ============ TABLA ============ */
 /* área de registros: más alta, usando el alto real de la pantalla */
@@ -271,7 +283,34 @@ tbody tr.grp-b{background:#eaf4fd}
 tbody tr:hover{background:#eef6fd}
 tbody tr.pending{box-shadow:inset 3px 0 0 #e0a53c}
 /* columna N° (número de registro) */
-td.num{color:var(--ink-soft); text-align:right; font-weight:600; font-variant-numeric:tabular-nums}
+td.num{color:#0b5aa8; text-align:right; font-weight:800; font-variant-numeric:tabular-nums}
+
+/* ===== PRIORIDAD: píldora de color con su icono =====
+   Emergencia (rojo, círculo con !) · Urgencia (ámbar, triángulo) · Regular (verde, ✓)
+   Sigue siendo el mismo desplegable: solo cambia cómo se ve. */
+.cell-sel.prio-emergencia, .cell-sel.prio-urgencia, .cell-sel.prio-regular{
+  appearance:none; -webkit-appearance:none; border:0; border-radius:999px;
+  padding:5px 12px 5px 30px; font-weight:800; text-align:left; cursor:pointer;
+  background-repeat:no-repeat; background-position:8px center; background-size:15px 15px;
+}
+.cell-sel.prio-emergencia{
+  background-color:#fde7ec; color:#bd1a3f;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='11' fill='%23e11d48'/%3E%3Cpath d='M12 6.4v7.1' stroke='%23fff' stroke-width='2.7' stroke-linecap='round'/%3E%3Ccircle cx='12' cy='17.4' r='1.5' fill='%23fff'/%3E%3C/svg%3E");
+}
+.cell-sel.prio-urgencia{
+  background-color:#fdf2d6; color:#98660a;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.6 22.7 20.8H1.3z' fill='%23f0a300' stroke='%23f0a300' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M12 9.2v4.6' stroke='%23fff' stroke-width='2.5' stroke-linecap='round'/%3E%3Ccircle cx='12' cy='17.2' r='1.4' fill='%23fff'/%3E%3C/svg%3E");
+}
+.cell-sel.prio-regular{
+  background-color:#e2f6e8; color:#137a3f;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='11' fill='%2316a34a'/%3E%3Cpath d='M6.8 12.4l3.5 3.4 7-7.5' fill='none' stroke='%23fff' stroke-width='2.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+/* ===== AUTORIZADOR: píldora azul con la letra en azul ===== */
+.cell-sel.cell-aut{
+  background:#e8f1fd; color:#0b5aa8; font-weight:800; border:0; border-radius:999px;
+  text-align:center;
+}
+.cell-sel.cell-aut:hover{background:#dbe9fb}
 td.actions{white-space:nowrap}
 td.actions button{all:unset; cursor:pointer; padding:5px; border-radius:8px; color:var(--purple-deep); border:1px solid transparent; display:inline-flex; align-items:center; justify-content:center; line-height:0}
 td.actions button + button{margin-left:3px}
@@ -1053,7 +1092,7 @@ const CAT_DEFAULT = {
   estado: ESTADOS_TQ.slice(),
   servicio:['URGENCIAS GINECOOBSTETRICIA','ESTANCIA GENERAL QUIRÚRGICA','HEMATOLOGÍA','ESTANCIA GENERAL PEDIÁTRICA','CIRUGÍA ORTOPÉDICA Y TRAUMATOLOGÍA (PEDIATRICA)'],
   especialidad:['GINECOLOGÍA Y OBSTETRICIA','CIRUGÍA ONCOLÓGICA','ORTOPEDIA Y TRAUMATOLOGÍA (PEDIATRICA)','MEDICINA INTERNA'],
-  prioridad:['Regular','Urgencia'],
+  prioridad:['Emergencia','Urgencia','Regular'],
   cups:[], cie10:[], procedimiento:[]
 };
 
@@ -1763,11 +1802,23 @@ function estadoClass(v){
   if(/NO AUTORIZADO|SIN GESTION|ANULAD/.test(t)) return ' sel-no';
   return ' sel-info';
 }
+/* La prioridad se pinta como una píldora de color con su icono:
+   Emergencia (rojo) · Urgencia (ámbar) · Regular (verde). */
+function prioClass(v){
+  const t = norm(v);
+  if(/EMERGENCIA/.test(t)) return ' prio-emergencia';
+  if(/URGENCIA/.test(t))   return ' prio-urgencia';
+  if(/REGULAR/.test(t))    return ' prio-regular';
+  return '';
+}
 function selectHtml(f, rec){
   const cur = String(rec[f.k] || '').trim();
   const opts = ['<option value="">—</option>'].concat(optsFor(f.cat, cur).map(v =>
     '<option' + (norm(v) === norm(cur) ? ' selected' : '') + '>' + esc(v) + '</option>'));
-  return '<select class="cell-sel' + (f.cat === 'estado' ? estadoClass(cur) : '') + '" data-id="' + esc(rec.id) +
+  const cls = (f.cat === 'estado')     ? estadoClass(cur)
+            : (f.cat === 'prioridad')  ? prioClass(cur)
+            : (f.cat === 'autorizador')? ' cell-aut' : '';
+  return '<select class="cell-sel' + cls + '" data-id="' + esc(rec.id) +
          '" data-field="' + esc(f.k) + '" title="Selecciona ' + esc(f.label) + '">' + opts.join('') + '</select>';
 }
 function cellHtml(f, v){
@@ -1792,6 +1843,18 @@ function cellHtml(f, v){
 }
 
 /* ---------------- render ---------------- */
+/* ===== Contadores: iconos y armado de la tarjeta =====
+   Cada tarjeta lleva su círculo de color con el icono en blanco. */
+const ICONO = {
+  cama:    '<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.4v11.2M3 14.6h18v4"/><path d="M8.2 14.6v-3h10.3a2.5 2.5 0 0 1 2.5 2.5"/><circle cx="6.4" cy="10.7" r="2.1"/></svg>',
+  check:   '<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.2"/><path d="M8.1 12.5l2.8 2.8 5.1-5.7"/></svg>',
+  persona: '<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="8.2" r="3.5"/><path d="M5 20.2a7 7 0 0 1 14 0"/></svg>',
+  reloj:   '<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9.2"/><path d="M12 7.2V12l3.4 2.1"/></svg>'
+};
+function tarjeta(clase, icono, valor, etiqueta){
+  return '<div class="stat ' + clase + '"><i class="st-ic">' + icono + '</i>' +
+         '<div class="st-tx"><b>' + valor + '</b><span>' + etiqueta + '</span></div></div>';
+}
 function renderStats(key){
   /* los contadores son del mes elegido: si no, no cuadrarían con la tabla */
   const all = state.data[key].filter(r => fechaEnMes(r.fecha));
@@ -1804,13 +1867,12 @@ function renderStats(key){
      en la barra amarilla de cada fila.) */
   const pend = all.filter(r => /^PENDIENTE$/i.test(String(r.estado || '').trim())).length;
   $('#stats-' + key).innerHTML =
-    '<div class="stat"><b>' + all.length + '</b><span>Registros ' + esc(SCHEMAS[key].short) + '</span></div>' +
-    '<div class="stat"><b>' + hoy + '</b><span>De hoy</span></div>' +
-    '<div class="stat"><b>' + third.v + '</b><span>' + third.l + '</span></div>' +
+    tarjeta('s-azul',   ICONO.cama,    all.length, 'Registros ' + esc(SCHEMAS[key].short)) +
+    tarjeta('s-verde',  ICONO.check,   hoy,        'De hoy') +
+    tarjeta('s-morado', ICONO.persona, third.v,    third.l) +
     (key === 'tq'
-      ? '<div class="stat"><b>' + all.filter(r => String(r.fisico || '').trim()).length +
-        '</b><span>En físico</span></div>' +
-        '<div class="stat"><b>' + pend + '</b><span>Pendientes</span></div>'
+      ? tarjeta('s-ambar', ICONO.persona, all.filter(r => String(r.fisico || '').trim()).length, 'En físico') +
+        tarjeta('s-rojo',  ICONO.reloj,   pend, 'Pendientes')
       : '');
 }
 /* campos que se ven en la tabla y en el formulario. Los ocultos (el sello de
@@ -1939,6 +2001,10 @@ function seleccionados(key){
   const sel = (state.ui[key] && state.ui[key].sel) || {};
   return Object.keys(sel).filter(id => sel[id]);
 }
+/* OJO: `updateLote` y `marcarLote` (la línea de abajo) quedaron SIN USO cuando
+   se quitó el botón «Marcar recibidos»: la columna de casillas está oculta, así
+   que no hay ninguna casilla que marcar. Se dejan por si algún día se recupera
+   ese botón; ahora mismo no las llama nadie. */
 function updateLote(key){
   const b = $('#tool-' + key + ' [data-act="lote"]');
   if(!b) return;
@@ -2004,7 +2070,8 @@ function buildToolbar(key){
     '<button class="btn" data-act="new">＋ Nuevo registro</button>' +
     '<button class="btn" data-act="xlsx">Exportar Excel</button>' +
     '<button class="btn ghost" data-act="csv">CSV</button>' +
-    (key === 'tq' ? '<button class="btn" data-act="lote" disabled>Marcar recibidos (0)</button>' : '') +
+    /* (el botón «Marcar recibidos» se quitó: la columna de casillas está oculta
+       y no tenía sentido marcar algo que ya no se ve) */
     '<span class="spacer"></span>' +
     '<input class="search" type="search" data-act="q" placeholder="Buscar en ' + esc(s.short) + '…" />' +
     '<span class="field-inline">Desde <input type="date" data-act="from" style="width:152px" /></span>' +
@@ -2031,7 +2098,6 @@ function buildToolbar(key){
     if(a === 'new') openForm(key, null);
     if(a === 'xlsx') exportWorkbook();
     if(a === 'csv') exportCsv(key);
-    if(a === 'lote') marcarLote(key);
     if(a === 'clear'){
       u.q = ''; u.from = ''; u.to = ''; u.aut = ''; u.fis = ''; u.sel = {}; u.limit = 300;
       t.querySelector('[data-act="q"]').value = '';
