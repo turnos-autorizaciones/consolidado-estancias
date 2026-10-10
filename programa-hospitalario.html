@@ -1174,10 +1174,18 @@ const sb = {
     }
     return data;
   },
-  async pull(table){
+  /* Trae las filas de una tabla.
+   Si se le pasa «desde» (una fecha ISO), trae SOLO las que cambiaron después de
+   esa fecha. Eso es lo que hace ligera la sincronización de fondo: en vez de
+   bajarse los 533 registros cada vez, normalmente no baja ninguno. */
+  async pull(table, desde){
     const out = []; const B = 1000;
     for(let i = 0; i < 20; i++){
-      const rows = await this.req('/rest/v1/' + table + '?select=*&order=updated_at.desc&limit=' + B + '&offset=' + (i * B));
+      let q = '/rest/v1/' + table + '?select=*&order=updated_at.desc&limit=' + B + '&offset=' + (i * B);
+      /* encodeURIComponent es imprescindible: el «+» de la zona horaria, sin
+         codificar, lo leería como un espacio y el filtro no encontraría nada */
+      if(desde) q += '&updated_at=gt.' + encodeURIComponent(desde);
+      const rows = await this.req(q);
       if(!Array.isArray(rows) || !rows.length) break;
       out.push.apply(out, rows);
       if(rows.length < B) break;
@@ -2431,17 +2439,30 @@ async function syncAll(silent){
       const pend = state.data[k].filter(isPending);
       if(pend.length){ await sb.upsert(SCHEMAS[k].table, pend); pend.forEach(r => r._sync = 'synced'); pushed += pend.length; saveData(k); }
     }
+    /* De fondo se piden SOLO los cambios posteriores a la última vez (el «corte»).
+       Es lo que evita bajarse los 533 registros cada 3 minutos: en condiciones
+       normales la consulta no devuelve nada. Al sincronizar a mano (o al entrar)
+       se pide todo, para no dejar ningún cabo suelto. */
+    const desde = silent ? (state.corteSync || null) : null;
     for(const k of KEYS){
       let remote = [];
-      try{ remote = await sb.pull(SCHEMAS[k].table); }
+      try{ remote = await sb.pull(SCHEMAS[k].table, desde); }
       catch(err){ throw new Error(SCHEMAS[k].short + ': ' + err.message); }
       const byId = {};
       state.data[k].forEach(r => { byId[r.id] = r; });
       let toco = false;
       remote.forEach(rr => {
         const loc = byId[rr.id];
+        /* Si venimos de un corte, el servidor ya nos ha dicho que esa fila cambió
+           después: se aplica sin más comparaciones. */
+        const cambioDespuesDelCorte = !!desde;
         if(!loc){ state.data[k].push(Object.assign({_sync:'synced'}, rr)); pulled++; toco = true; }
-        else if(!isPending(loc) && String(rr.updated_at || '') > String(loc.updated_at || '')){ Object.assign(loc, rr, {_sync:'synced'}); pulled++; toco = true; }
+        else if(!isPending(loc) && (cambioDespuesDelCorte ||
+                String(rr.updated_at || '') > String(loc.updated_at || ''))){ Object.assign(loc, rr, {_sync:'synced'}); pulled++; toco = true; }
+        /* se anota hasta dónde se ha traído (las fechas del servidor siempre
+           vienen en el mismo formato, así que compararlas entre ellas es fiable) */
+        const u = String(rr.updated_at || '');
+        if(u > (state.corteSync || '')) state.corteSync = u;
       });
       /* solo se vuelve a pintar si de verdad llegó algo: así la pantalla no
          parpadea cada vez que la sincronización de fondo no encuentra cambios */
