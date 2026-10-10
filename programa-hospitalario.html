@@ -1738,17 +1738,23 @@ function cellHtml(f, v){
 function renderStats(key){
   /* los contadores son del mes elegido: si no, no cuadrarían con la tabla */
   const all = state.data[key].filter(r => fechaEnMes(r.fecha));
-  const hoy = all.filter(isHoy).length, pen = all.filter(isPending).length;
+  const hoy = all.filter(isHoy).length;
   const third = key === 'tq'
     ? {v: all.filter(r => /^AUTORIZADO$/i.test(String(r.estado || '').trim())).length, l:'Autorizados'}
     : {v: all.filter(r => /URGEN/i.test(String(r.prioridad || ''))).length, l:'Urgencias'};
+  /* «Pendientes» = turnos cuyo ESTADO es PENDIENTE, o sea los que faltan por
+     autorizar. (No confundir con lo que falta por subir a la base: eso se ve
+     en la barra amarilla de cada fila.) */
+  const pend = all.filter(r => /^PENDIENTE$/i.test(String(r.estado || '').trim())).length;
   $('#stats-' + key).innerHTML =
     '<div class="stat"><b>' + all.length + '</b><span>Registros ' + esc(SCHEMAS[key].short) + '</span></div>' +
     '<div class="stat"><b>' + hoy + '</b><span>De hoy</span></div>' +
     '<div class="stat"><b>' + third.v + '</b><span>' + third.l + '</span></div>' +
-    (key === 'tq' ? '<div class="stat"><b>' + all.filter(r => String(r.fisico || '').trim()).length +
-      '</b><span>En físico</span></div>' : '') +
-    '<div class="stat"><b>' + pen + '</b><span>Por sincronizar</span></div>';
+    (key === 'tq'
+      ? '<div class="stat"><b>' + all.filter(r => String(r.fisico || '').trim()).length +
+        '</b><span>En físico</span></div>' +
+        '<div class="stat"><b>' + pend + '</b><span>Pendientes</span></div>'
+      : '');
 }
 /* campos que se ven en la tabla y en el formulario. Los ocultos (el sello de
    trazabilidad) solo se guardan y se exportan: no ocupan espacio en pantalla. */
