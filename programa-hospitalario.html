@@ -2217,6 +2217,38 @@ function refreshAutFilter(key){
     '<option' + (norm(v) === norm(cur) ? ' selected' : '') + '>' + esc(v) + '</option>').join('');
 }
 
+/* ---------------- el buscador y el relleno del navegador ---------------- */
+
+/* ¿lo que hay escrito parece un correo? Nadie busca un correo en el buscador,
+   así que si aparece uno es que lo puso el navegador, no la persona. */
+function esCorreo(v){ return /@/.test(String(v || '')) && /\.[A-Za-z]{2,}/.test(String(v || '')); }
+
+/* vigilante del relleno automático.
+   Chrome y Edge guardan el correo con el que se entra al programa
+   (autorizacioneshospitalarias@…) y lo sueltan en el buscador de la barra. Lo
+   peor: lo hacen SIN disparar ningún evento, así que no basta con escuchar
+   «estoy escribiendo»; hay que mirarlo por tiempo. Se llama al arrancar, al
+   volver de la caché (pageshow) y unas cuantas veces en los primeros segundos,
+   que es justo cuando el navegador rellena. */
+let avisoRellenoDado = false;
+function limpiarRellenoDelNavegador(){
+  let hubo = false;
+  KEYS.forEach(k => {
+    const inp = document.querySelector('#tool-' + k + ' input[data-act="q"]');
+    if(inp && esCorreo(inp.value)){
+      inp.value = '';
+      state.ui[k].q = ''; state.ui[k].limit = 300;
+      renderBody(k);
+      hubo = true;
+    }
+  });
+  if(hubo && !avisoRellenoDado){
+    avisoRellenoDado = true;
+    toast('El navegador había rellenado el buscador con un correo. Lo limpié.', 'warn');
+  }
+  return hubo;
+}
+
 /* ---------------- barra de herramientas ---------------- */
 function buildToolbar(key){
   const s = SCHEMAS[key], t = $('#tool-' + key);
@@ -2229,11 +2261,18 @@ function buildToolbar(key){
     /* (el botón «Marcar recibidos» se quitó: la columna de casillas está oculta
        y no tenía sentido marcar algo que ya no se ve) */
     '<span class="spacer"></span>' +
-    /* OJO: autocomplete="off" y un name que no parezca un usuario ni un correo.
-       Sin esto, el navegador rellenaba SOLO este buscador con el correo guardado
-       (autorizacioneshospitalarias@…) y el reporte se quedaba en blanco. */
+    /* EL BUSCADOR Y EL RELLENO AUTOMÁTICO DEL NAVEGADOR.
+       Chrome/Edge guardan el correo con el que se entra al programa
+       (autorizacioneshospitalarias@…) y lo sueltan justo aquí, porque es el
+       único campo de texto libre que hay en la barra. Y lo hacen SIN avisar: no
+       dispara ningún evento, así que el aviso de «está escribiendo» no se
+       enteraba y el correo seguía puesto al recargar la página.
+       Por eso el casillero nace `readonly`: el navegador no rellena campos de
+       solo lectura, de modo que ya no llega a escribir nada. El `readonly` se
+       suelta en cuanto la persona lo toca (ver el final de esta función) y, por
+       si acaso, queda el vigilante limpiarRellenoDelNavegador(). */
     '<input class="search" type="search" data-act="q" name="ph-buscar-' + esc(key) + '" ' +
-    'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" ' +
+    'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" readonly ' +
     'placeholder="Buscar en ' + esc(s.short) + '…" />' +
     '<span class="field-inline">Desde <input type="date" data-act="from" style="width:152px" /></span>' +
     '<span class="field-inline">Hasta <input type="date" data-act="to" style="width:152px" /></span>' +
@@ -2245,10 +2284,11 @@ function buildToolbar(key){
   t.addEventListener('input', e => {
     const a = e.target.dataset.act;
     if(a === 'q'){
-      /* Red de seguridad: si lo que aparece en el buscador es un CORREO, no lo
-         escribió la persona — lo puso el navegador (relleno automático). Con eso
-         el reporte se quedaba sin filas y parecía vacío. Se limpia y se avisa. */
-      if(/@/.test(e.target.value) && /\./.test(e.target.value)){
+      /* Si lo que aparece en el buscador es un CORREO, no lo escribió la persona:
+         lo puso el navegador. Se limpia, se devuelve el reporte completo y se
+         avisa. (Con eso el reporte ya no se quedaba en blanco.) */
+      if(esCorreo(e.target.value)){
+        avisoRellenoDado = true;   /* el vigilante ya no repite el mismo aviso */
         e.target.value = '';
         u.q = ''; u.limit = 300; renderBody(key);
         toast('El navegador había rellenado el buscador con un correo. Lo limpié.', 'warn');
@@ -2280,6 +2320,20 @@ function buildToolbar(key){
       renderBody(key);
     }
   });
+  /* El buscador nace `readonly` (ver arriba). Aquí se suelta en cuanto la persona
+     lo toca de verdad: con el dedo, con el ratón o con el teclado. Así el
+     navegador nunca lo rellena solo, pero escribir en él funciona igual. */
+  const busq = t.querySelector('input[data-act="q"]');
+  if(busq){
+    const soltar = () => {
+      if(busq.readOnly) busq.readOnly = false;
+      /* si el navegador alcanzó a rellenarlo, se limpia en el acto */
+      if(esCorreo(busq.value)) limpiarRellenoDelNavegador();
+    };
+    ['pointerdown','mousedown','touchstart','keydown'].forEach(ev =>
+      busq.addEventListener(ev, soltar, {passive:true, capture:true}));
+    busq.addEventListener('focus', soltar);
+  }
 }
 
 /* ---------------- formulario (crear / editar) ---------------- */
@@ -3254,6 +3308,17 @@ function openPanel(p){
 function init(){
   loadAll();
   KEYS.forEach(k => { buildToolbar(k); renderPanel(k); });
+  /* El navegador rellena el buscador sin avisar (ni un solo evento), así que se
+     revisa por tiempo: unas cuantas veces al arrancar —que es cuando suele
+     rellenar— y luego una mirada ligera cada 800 ms, porque puede hacerlo en
+     cualquier momento (al volver a la pestaña, al repintar la tabla…). Son dos
+     casilleros: no cuesta nada. Además se revisa al volver de la caché, que es
+     justo el caso de «recargar la página». */
+  limpiarRellenoDelNavegador();
+  [120, 400, 900, 1800, 3200].forEach(ms => setTimeout(limpiarRellenoDelNavegador, ms));
+  setInterval(limpiarRellenoDelNavegador, 800);
+  window.addEventListener('pageshow', () => limpiarRellenoDelNavegador());
+  document.addEventListener('visibilitychange', () => { if(!document.hidden) limpiarRellenoDelNavegador(); });
   fillCatSelect();
   $('#cfg-url').value = state.cfg.url || '';
   $('#cfg-key').value = state.cfg.key || '';
