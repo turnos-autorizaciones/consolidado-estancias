@@ -393,7 +393,11 @@ tbody td{padding:5px 8px; border-bottom:1px solid #eef6fd; vertical-align:middle
   display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
   max-width:330px; line-height:1.3;
 }
-tbody tr:nth-child(even){background:#f6fbff}
+/* El rayado va por CLASE, no por :nth-child. La tabla se pinta por ventana (solo
+   las filas que caben en pantalla), así que la posición de una fila dentro del DOM
+   ya NO coincide con su número de registro: con :nth-child el color cambiaría solo
+   con desplazarse. La clase .par la pone la tabla según el índice verdadero. */
+tbody tr.par{background:#f6fbff}
 /* Pacientes con VARIOS procedimientos: todas sus filas consecutivas se pintan del
    mismo color suave, y cada bloque alterna (lila / rosa) para diferenciarse de los
    demás pacientes. Los pacientes con un solo procedimiento quedan sin color. */
@@ -401,6 +405,11 @@ tbody tr.grp-a{background:#eef6fd}
 tbody tr.grp-b{background:#eaf4fd}
 tbody tr:hover{background:#eef6fd}
 tbody tr.pending{box-shadow:inset 3px 0 0 #e0a53c}
+/* Relleno invisible de la ventana de filas: ocupa el alto de las filas que NO se
+   construyen, para que la barra de desplazamiento siga midiendo lo mismo. No debe
+   pintar fondo ni borde, ni reaccionar al paso del mouse. */
+tbody tr.vhueco, tbody tr.vhueco:hover{background:transparent}
+tbody tr.vhueco td{border:0; padding:0}
 /* columna N° (número de registro) */
 td.num{color:#0b5aa8; text-align:right; font-weight:800; font-variant-numeric:tabular-nums}
 
@@ -1782,7 +1791,7 @@ function renderPreview(){
   if(!cols.length){ $('#imp-preview').innerHTML = '<div class="empty">Asigna al menos un encabezado para ver la vista previa.</div>'; return; }
   $('#imp-preview').innerHTML = '<table><thead><tr>' + cols.map(h =>
       '<th>' + esc((s.fields.find(f => f.k === imp.map[h.i]) || {}).label || h.text) + '</th>').join('') + '</tr></thead><tbody>' +
-    rows.map(r => '<tr>' + cols.map(h => {
+    rows.map((r, i) => '<tr' + (i % 2 ? ' class="par"' : '') + '>' + cols.map(h => {
       let v = r[h.i]; if(v instanceof Date) v = isoFromDate(v);
       return '<td>' + (esc(String(v == null ? '' : v).slice(0, 90)) || '—') + '</td>';
     }).join('') + '</tr>').join('') + '</tbody></table>';
@@ -2547,6 +2556,192 @@ function renderHead(key){
 /* Iconos de las acciones de cada fila (reemplazan al texto "Editar" / "Borrar") */
 const ICON_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
 const ICON_DEL  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>';
+/* ==========================================================================
+   VENTANA DE FILAS
+   ==========================================================================
+   Un mes trae 1.670 registros en Turnos y 2.081 en Notas. Construir todas las filas
+   de golpe costaba ~13 MB de HTML y ~240.000 nodos, y la tabla se reconstruía
+   ENTERA en cada clic (filtro, búsqueda, edición, sello). Ahora solo se construyen
+   las filas que caben en pantalla, más un margen por arriba y por abajo, y dos
+   filas de relleno invisibles mantienen el alto total de la tabla.
+
+   Lo que NO cambia: el contador («Mostrando 1670 de 1670»), la numeración N° de
+   cada fila, la barra de desplazamiento, los filtros, «seleccionar todo» y la
+   exportación (que lee de los datos, no de la pantalla).
+
+   Las filas NO miden todas lo mismo: cuando el CIE10 es largo envuelve el texto y
+   la fila pasa de 48 a 59 px. Por eso cada altura real se MIDE una vez y se
+   recuerda, y las que aún no se han visto usan el promedio de las medidas. Así la
+   barra de desplazamiento no se descoloca.
+   ========================================================================== */
+const MARGEN_VENTANA = 8;            /* filas de más arriba y de abajo que se construyen */
+const ALTO_ESTIMADO   = 52;          /* alto de fila de partida, antes de medir ninguna */
+const VENTANA = {};
+function ventanaDe(key){
+  return VENTANA[key] || (VENTANA[key] = {
+    alturas: [], suma: 0, cuantas: 0, estimada: ALTO_ESTIMADO, ancho: 0,
+    shown: [], clases: {}, firma: '', arranque: -1, fin: -1, forzar: true, pintado: false
+  });
+}
+function cajaDe(key){
+  const t = $('#table-' + key);
+  return t ? t.closest('.table-wrap') : null;
+}
+/* En pantallas pequeñas las filas se ven como tarjetas y el que se desplaza es la
+   página, no el cuadro: ahí no hay ventana que valga y se pintan todas. */
+function conVentana(key){
+  const caja = cajaDe(key);
+  if(!caja) return false;
+  const o = getComputedStyle(caja).overflowY;
+  return (o === 'auto' || o === 'scroll');
+}
+/* acc[i] = alto de todo lo que hay ANTES de la fila i */
+function acumulado(key, n){
+  const v = ventanaDe(key), acc = new Array(n + 1);
+  acc[0] = 0;
+  for(let i = 0; i < n; i++) acc[i + 1] = acc[i] + (v.alturas[i] || v.estimada);
+  return acc;
+}
+/* índice de la primera fila que se ve con la tabla desplazada a «y» */
+function filaEn(acc, y, n){
+  let lo = 0, hi = n - 1, res = 0;
+  while(lo <= hi){
+    const m = (lo + hi) >> 1;
+    if(acc[m] <= y){ res = m; lo = m + 1; } else hi = m - 1;
+  }
+  return res;
+}
+/* Si cambia el conjunto que se muestra (otro mes, otro filtro, otra búsqueda) las
+   alturas medidas ya no corresponden a esos índices y se tiran. */
+function firmaDe(shown){
+  return shown.length + '|' + (shown.length ? String(shown[0].id) : '') + '|' +
+         (shown.length ? String(shown[shown.length - 1].id) : '');
+}
+function claseDeFila(r, i, grupo){
+  return [isPending(r) ? 'pending' : '', grupo || '', (i % 2 === 1 ? 'par' : '')]
+    .filter(Boolean).join(' ');
+}
+/* Una fila de la tabla. i es el índice VERDADERO (no la posición en pantalla), que
+   es lo que numera la columna N° y lo que decide el rayado. */
+function htmlFila(key, r, i, grupo){
+  return '<tr class="' + claseDeFila(r, i, grupo) + '" data-id="' + esc(r.id) + '">' +
+    (key === 'tq' ? '<td class="pick" data-label="SEL"><input type="checkbox" class="pick" data-id="' + esc(r.id) + '"' +
+      (state.ui.tq.sel && state.ui.tq.sel[r.id] ? ' checked' : '') + ' title="Seleccionar para marcar en lote"></td>' : '') +
+    '<td class="num" data-label="N°">' + (i + 1) + '</td>' +
+    campos(key).map(f => '<td' + (f.type === 'select' ? ' class="sel-cell"' : '') + ' data-label="' + esc(f.label) + '">' +
+      (f.sello ? selloHtml(r) : (f.type === 'select' ? selectHtml(f, r) : cellHtml(f, r[f.k]))) + '</td>').join('') +
+    '<td class="actions" data-label="ACCIONES">' +
+      '<button class="edit" data-id="' + esc(r.id) + '" title="Editar" aria-label="Editar registro">' + ICON_EDIT + '</button>' +
+      '<button class="del" data-id="' + esc(r.id) + '" title="Borrar" aria-label="Borrar registro">' + ICON_DEL + '</button>' +
+    '</td>' +
+  '</tr>';
+}
+/* El tbody lleva SIEMPRE dos filas de relleno, una arriba y otra abajo (con alto 0
+   si no hacen falta). Así las filas de datos son justo las de en medio y meter o
+   sacar filas por los bordes es muy simple. */
+function htmlHueco(colspan, alto){
+  return '<tr class="vhueco" aria-hidden="true"><td colspan="' + colspan +
+         '" style="height:' + Math.max(0, Math.round(alto)) + 'px"></td></tr>';
+}
+/* Mete filas del trozo [desde, hasta) por arriba o por abajo de la ventana. */
+function meterFilas(key, tb, v, desde, hasta, donde){
+  let html = '';
+  for(let i = desde; i < hasta; i++) html += htmlFila(key, v.shown[i], i, v.clases[i]);
+  if(!html) return;
+  if(donde === 'arriba') tb.firstElementChild.insertAdjacentHTML('afterend', html);
+  else tb.lastElementChild.insertAdjacentHTML('beforebegin', html);
+}
+/* Saca filas por arriba o por abajo (nunca toca las de relleno). */
+function sacarFilas(tb, cuantas, donde){
+  for(let i = 0; i < cuantas; i++){
+    const el = donde === 'arriba' ? tb.children[1] : tb.children[tb.children.length - 2];
+    if(!el || el.classList.contains('vhueco')) return;
+    el.remove();
+  }
+}
+/* Pinta la parte de la lista que corresponde a la posición de desplazamiento. Se
+   llama al pintar un panel y en cada desplazamiento, pero NO recalcula filtros ni
+   orden: eso ya lo dejó hecho renderBody en ventanaDe(key).shown.
+
+   Al desplazarse NO se reconstruye la ventana entera: se quitan las filas que salen
+   por un borde y se añaden las que entran por el otro. Reconstruir 30 filas costaba
+   ~15 ms (lo que cuesta crear esos nodos), y eso se notaba al rodar la rueda; tocar
+   solo 2 o 3 filas cuesta menos de 1 ms. La ventana entera solo se rehace cuando
+   cambian los datos o cuando el salto es tan grande que no queda nada en común. */
+function pintarVentanaFilas(key){
+  const v = ventanaDe(key), shown = v.shown, n = shown.length;
+  const tb = $('#body-' + key);
+  if(!tb) return;
+  if(!n){ tb.innerHTML = ''; v.pintado = false; v.arranque = -1; v.fin = -1; return; }
+  const usa = conVentana(key), caja = cajaDe(key);
+  let ini = 0, fin = n;
+  if(usa && caja){
+    const acc0 = acumulado(key, n);
+    const alto = caja.clientHeight || 460;
+    const y = Math.max(0, caja.scrollTop);
+    const caben = Math.max(4, Math.ceil(alto / v.estimada) + 1) + MARGEN_VENTANA * 2;
+    ini = Math.max(0, filaEn(acc0, y, n) - MARGEN_VENTANA);
+    fin = Math.min(n, ini + caben);
+  }
+  if(!v.forzar && v.pintado && ini === v.arranque && fin === v.fin) return;
+  const solapa = v.pintado && ini < v.fin && fin > v.arranque;
+  if(v.forzar || !solapa){
+    /* ventana nueva de cero (o cambio de datos / salto grande) */
+    const colspan = campos(key).length + 2 + (key === 'tq' ? 1 : 0);
+    const acc = acumulado(key, n);
+    let html = htmlHueco(colspan, acc[ini]);
+    for(let i = ini; i < fin; i++) html += htmlFila(key, shown[i], i, v.clases[i]);
+    html += htmlHueco(colspan, acc[n] - acc[fin]);
+    tb.innerHTML = html;
+  } else {
+    /* solo cambian los bordes de la ventana */
+    if(ini > v.arranque) sacarFilas(tb, ini - v.arranque, 'arriba');
+    if(ini < v.arranque) meterFilas(key, tb, v, ini, v.arranque, 'arriba');
+    if(fin > v.fin)      meterFilas(key, tb, v, v.fin, fin, 'abajo');
+    if(fin < v.fin)      sacarFilas(tb, v.fin - fin, 'abajo');
+  }
+  v.forzar = false; v.pintado = true; v.arranque = ini; v.fin = fin;
+  if(!usa || !caja) return;
+  /* --- se miden las alturas reales de lo que hay pintado --- */
+  const trs = tb.querySelectorAll('tr[data-id]');
+  for(let k = 0; k < trs.length; k++){
+    const h = trs[k].offsetHeight, idx = ini + k;
+    if(!h || v.alturas[idx] === h) continue;
+    if(v.alturas[idx] == null){ v.suma += h; v.cuantas++; }
+    else { v.suma += h - v.alturas[idx]; }
+    v.alturas[idx] = h; v.estimada = v.suma / v.cuantas;
+  }
+  /* Los rellenos se recalculan con las alturas ya medidas, para que el alto total de
+     la tabla —y por tanto la barra— sea el de verdad y no una estimación. */
+  const acc2 = acumulado(key, n);
+  const hijos = tb.children;
+  const primero = hijos[0], ultimo = hijos[hijos.length - 1];
+  if(primero && primero.classList.contains('vhueco'))
+    primero.firstElementChild.style.height = Math.max(0, Math.round(acc2[ini])) + 'px';
+  if(ultimo && ultimo.classList.contains('vhueco'))
+    ultimo.firstElementChild.style.height = Math.max(0, Math.round(acc2[n] - acc2[fin])) + 'px';
+  /* El ancho de la tabla se calcula con lo que hay dentro, así que podría encogerse
+     al desplazarse y mover la barra horizontal. Se fija el mayor ancho visto para
+     que no encoja (y se suelta cuando cambian los datos, más arriba). */
+  const tabla = $('#table-' + key);
+  if(tabla){
+    const w = tabla.offsetWidth;
+    if(w > v.ancho){ v.ancho = w; tabla.style.minWidth = w + 'px'; }
+  }
+}
+/* Al desplazarse solo se repinta la ventana: no se vuelven a filtrar ni a ordenar
+   los 1.670 registros. Se agrupa con requestAnimationFrame para no hacerlo más de
+   una vez por cuadro. */
+function enganchaVentana(key){
+  const caja = cajaDe(key);
+  if(!caja) return;
+  let pedido = false;
+  caja.addEventListener('scroll', () => {
+    if(pedido) return;
+    pedido = true;
+    requestAnimationFrame(() => { pedido = false; pintarVentanaFilas(key); });
+  }, { passive: true });
+}
 function renderBody(key){
   const s = SCHEMAS[key], all = rowsOf(key), u = state.ui[key];
   const shown = all;                 /* sin tope: se listan todos */
@@ -2591,12 +2786,15 @@ function renderBody(key){
       tb.innerHTML = '<tr><td colspan="' + colspan + '"><div class="empty"><img class="empty-logo" src="' + LOGO_HUSJ + '" alt=""><b>' + titulo + '</b>' +
         detalle + '</div></td></tr>';
     }
+    /* se vacía la ventana: si no, un desplazamiento posterior volvería a pintar las
+       filas del mes o del filtro anteriores encima del aviso */
+    const vv = ventanaDe(key);
+    vv.shown = []; vv.clases = {}; vv.arranque = -1; vv.fin = -1; vv.forzar = true; vv.pintado = false;
   } else {
-    /* i + 1 = número de registro (1, 2, 3...). Se numera en el mismo orden en que
-       se muestran y se exportan los registros, así que "Mostrando 300 de 528"
-       significa que el último número visible es el 300. */
     /* Bloques por paciente/turno: si un paciente tiene varios procedimientos, sus filas
-       consecutivas comparten color y los bloques alternan (grp-a / grp-b). */
+       consecutivas comparten color y los bloques alternan (grp-a / grp-b). Se calculan
+       sobre la lista COMPLETA —no solo sobre las filas que se construyen— para que el
+       color de un bloque no cambie al desplazarse. */
     const claveGrupo = r => [String(r.fecha || ''), String(r.folio_dgh || ''),
                              String(r.id_paciente || ''), norm(r.paciente || '')].join('|');
     const claseGrupo = {};
@@ -2615,19 +2813,20 @@ function renderBody(key){
         }
       }
     });
-    tb.innerHTML = shown.map((r, i) =>
-      '<tr class="' + [isPending(r) ? 'pending' : '', claseGrupo[i] || ''].filter(Boolean).join(' ') + '" data-id="' + esc(r.id) + '">' +
-      (key === 'tq' ? '<td class="pick" data-label="SEL"><input type="checkbox" class="pick" data-id="' + esc(r.id) + '"' +
-        (state.ui.tq.sel && state.ui.tq.sel[r.id] ? ' checked' : '') + ' title="Seleccionar para marcar en lote"></td>' : '') +
-      '<td class="num" data-label="N°">' + (i + 1) + '</td>' +
-      campos(key).map(f => '<td' + (f.type === 'select' ? ' class="sel-cell"' : '') + ' data-label="' + esc(f.label) + '">' +
-        (f.sello ? selloHtml(r) : (f.type === 'select' ? selectHtml(f, r) : cellHtml(f, r[f.k]))) + '</td>').join('') +
-      '<td class="actions" data-label="ACCIONES">' +      /* la última columna de la fila */
-        '<button class="edit" data-id="' + esc(r.id) + '" title="Editar" aria-label="Editar registro">' + ICON_EDIT + '</button>' +
-        '<button class="del" data-id="' + esc(r.id) + '" title="Borrar" aria-label="Borrar registro">' + ICON_DEL + '</button>' +
-      '</td>' +
-      '</tr>'
-    ).join('');
+    /* La ventana decide qué trozo de la lista se construye. El índice verdadero (i)
+       numera la columna N° y decide el rayado, así que ninguno de los dos cambia al
+       desplazarse. */
+    const v = ventanaDe(key);
+    const firma = firmaDe(shown);
+    if(firma !== v.firma){
+      v.firma = firma; v.alturas = []; v.suma = 0; v.cuantas = 0; v.estimada = ALTO_ESTIMADO;
+      /* con otro mes / otro filtro el ancho de la tabla puede ser otro: se suelta el
+         mínimo que se hubiera fijado antes */
+      v.ancho = 0;
+      const t = $('#table-' + key); if(t) t.style.minWidth = '';
+    }
+    v.shown = shown; v.clases = claseGrupo; v.forzar = true;
+    pintarVentanaFilas(key);
   }
   /* red de seguridad: si un registro trae la fecha en un formato que no se puede
      leer, no aparecería en ningún mes. Se avisa en vez de esconderlo. */
@@ -3998,7 +4197,7 @@ function initHBars(){
 
 function init(){
   loadAll();
-  KEYS.forEach(k => { buildToolbar(k); renderPanel(k); });
+  KEYS.forEach(k => { buildToolbar(k); enganchaVentana(k); renderPanel(k); });
   initHBars();
   /* El navegador rellena el buscador sin avisar (ni un solo evento), así que se
      revisa por tiempo: unas cuantas veces al arrancar —que es cuando suele
