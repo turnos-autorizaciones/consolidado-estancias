@@ -1402,8 +1402,8 @@ const state = {
        de un autorizador concreto.
        sel: filas seleccionadas con la casilla, para marcar varias de una vez */
     /* mes: mes del consolidado elegido en la cabecera ('01'..'12' · '' = todos) */
-    tq:{q:'', from:'', to:'', aut:'', est:'', mes:'', limit:300, sel:{}},
-    no:{q:'', from:'', to:'', aut:'', est:'', mes:'', limit:300, sel:{}}
+    tq:{q:'', from:'', to:'', aut:'', est:'', mes:'', sel:{}},
+    no:{q:'', from:'', to:'', aut:'', est:'', mes:'', sel:{}}
   },
   editing: null,
   imp: null,
@@ -1575,7 +1575,11 @@ const ALIASES = {
        la columna "Dx" numérica no se usa para no dejar solo un número suelto */
     cie10:['DXDESCR','DXDESCRIPCION','DESCRIPCIONDX','DESCDX','DXPRINCIPAL','CIE10','DIAGNOSTICO','CODIGODIAGNOSTICO'],
     autorizador:['AUTORIZADOR','RESPONSABLE','USUARIO','AUDITOR'],
-    estado:['ESTADO','ESTADOTURNO','ESTADOTQ','ESTADOTURNOS','ESTADOSOLICITUD'],
+    /* OJO: aquí NO hay alias para el ESTADO a propósito. Lo que el reporte llama
+       «estado» es el SERVICIO donde está hospitalizado el paciente (HOSPITALIZACION,
+       URGENCIAS…), y no tiene nada que ver con el trámite de autorización. Por eso se
+       ignora al subir el archivo: la columna ESTADO de Turnos se trabaja a mano.
+       (Antes estaba como alias y el servicio entraba en el estado del trámite.) */
     observacion:['OBSERVACION','OBSERVACIONES','OBS','NOTA'],
     num_autorizacion:['NDEAUTORIZACION','NUMERODEAUTORIZACION','NOAUTORIZACION','NUMAUTORIZACION','NUMEROAUTORIZACION','NUMERO'],
     /* control del turno en físico (por si viene en el archivo como columna) */
@@ -1602,9 +1606,19 @@ const ALIASES = {
     autorizador:['AUTORIZADOR','RESPONSABLE','USUARIO']
   }
 };
+/* Cabeceras del archivo que NO se emparejan con ningún campo, aunque su nombre
+   coincida con la etiqueta de uno del programa. Se comprueban ANTES que nada,
+   al principio de autoMap, porque si no el emparejado «directo» las atrapa por
+   etiqueta y no hay forma de esquivarlas.
+   En Turnos, el reporte del hospital llama «estado» al SERVICIO donde está
+   hospitalizado el paciente: no tiene nada que ver con las autorizaciones. La
+   columna ESTADO de Turnos (SI / NO / PENDIENTE / …) se trabaja a mano en la
+   tabla, así que la cabecera «estado» del archivo se ignora al subirlo. */
+const CABECERAS_IGNORADAS = { tq:['ESTADO'], no:[] };
 function autoMap(key, header){
   const s = SCHEMAS[key], hk = keyOf(header);
   if(!hk) return '';
+  if((CABECERAS_IGNORADAS[key] || []).indexOf(hk) >= 0) return '';
   const direct = s.fields.find(f => keyOf(f.label) === hk || keyOf(f.k) === hk);
   if(direct) return direct.k;
   const al = ALIASES[key] || {};
@@ -1955,7 +1969,7 @@ function setMesConsolidado(clave){
   const p = String(clave || '').split('-');
   const anio = /^\d{4}$/.test(p[0] || '') ? p[0] : '';
   const mes  = /^\d{2}$/.test(p[1] || '') ? p[1] : '';
-  KEYS.forEach(k => { state.ui[k].anio = anio; state.ui[k].mes = mes; state.ui[k].limit = 300; });
+  KEYS.forEach(k => { state.ui[k].anio = anio; state.ui[k].mes = mes; });
   try{
     if(mes)  localStorage.setItem(MES_KEY, mes);
     if(anio) localStorage.setItem(ANIO_KEY, anio);
@@ -2535,7 +2549,7 @@ const ICON_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 const ICON_DEL  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>';
 function renderBody(key){
   const s = SCHEMAS[key], all = rowsOf(key), u = state.ui[key];
-  const shown = all.slice(0, u.limit);
+  const shown = all;                 /* sin tope: se listan todos */
   const tb = $('#body-' + key);
   const nomMes = etiquetaMesActual();
   if(!all.length){
@@ -2632,12 +2646,9 @@ function renderBody(key){
     (nomMes ? ' de <b>' + esc(nomMes) + '</b>' : '') +
     (all.length > shown.length ? ' filtrados' : '') + '.</span>' +
     dondeCoincide +
-    (all.length > shown.length ? '<button class="btn ghost" id="more-' + key + '">Ver 300 más</button>' : '') +
     (sinMes ? '<span class="hint" style="color:var(--warn); font-weight:700">' + sinMes +
       ' registro(s) con fecha ilegible: no entran en ningún mes.</span>' : '') +
     '<span class="hint">Las filas con barra amarilla aún no están sincronizadas con Supabase.</span>';
-  const more = $('#more-' + key);
-  if(more) more.onclick = () => { u.limit += 300; renderBody(key); };
   updateLote(key);
   programarHBars();          /* la barra pegada abajo se ajusta al ancho real */
 }
@@ -2784,7 +2795,7 @@ function limpiarRellenoDelNavegador(){
     const inp = document.querySelector('#tool-' + k + ' input[data-act="q"]');
     if(inp && esCorreo(inp.value)){
       inp.value = '';
-      state.ui[k].q = ''; state.ui[k].limit = 300;
+      state.ui[k].q = '';
       renderBody(k);
       hubo = true;
     }
@@ -2855,18 +2866,25 @@ function buildToolbar(key){
       if(esCorreo(e.target.value)){
         avisoRellenoDado = true;   /* el vigilante ya no repite el mismo aviso */
         e.target.value = '';
-        u.q = ''; u.limit = 300; renderBody(key);
+        u.q = ''; renderBody(key);
         toast('El navegador había rellenado el buscador con un correo. Lo limpié.', 'warn');
         return;
       }
-      u.q = e.target.value; u.limit = 300; renderBody(key);
+      u.q = e.target.value;
+      /* Con la lista entera a la vista (1.670 en Turnos, 2.081 en Notas) repintar la
+         tabla en CADA tecla se nota al escribir: medido, ~210 ms por letra. Se espera
+         a que la persona deje de teclear y se repinta UNA sola vez; así escribir va
+         fluido y el resultado aparece enseguida. Los filtros y los botones sí repintan
+         al instante, que son acciones sueltas. */
+      clearTimeout(u._t);
+      u._t = setTimeout(() => renderBody(key), 200);
     }
-    if(a === 'from'){ u.from = e.target.value; u.limit = 300; renderBody(key); }
-    if(a === 'to'){ u.to = e.target.value; u.limit = 300; renderBody(key); }
+    if(a === 'from'){ u.from = e.target.value; renderBody(key); }
+    if(a === 'to'){ u.to = e.target.value; renderBody(key); }
   });
   t.addEventListener('change', e => {
-    if(e.target.dataset.act === 'aut'){ u.aut = e.target.value; u.limit = 300; renderBody(key); }
-    if(e.target.dataset.act === 'est'){ u.est = e.target.value; u.limit = 300; renderBody(key); }
+    if(e.target.dataset.act === 'aut'){ u.aut = e.target.value; renderBody(key); }
+    if(e.target.dataset.act === 'est'){ u.est = e.target.value; renderBody(key); }
   });
   t.addEventListener('click', e => {
     const b = e.target.closest('[data-act]'); if(!b) return;
@@ -2876,7 +2894,7 @@ function buildToolbar(key){
     if(a === 'xlsx') exportWorkbook();
     if(a === 'csv') exportCsv(key);
     if(a === 'clear'){
-      u.q = ''; u.from = ''; u.to = ''; u.aut = ''; u.est = ''; u.sel = {}; u.limit = 300;
+      u.q = ''; u.from = ''; u.to = ''; u.aut = ''; u.est = ''; u.sel = {};
       t.querySelector('[data-act="q"]').value = '';
       t.querySelector('[data-act="from"]').value = '';
       t.querySelector('[data-act="to"]').value = '';
@@ -3134,7 +3152,7 @@ document.addEventListener('change', e => {
   u.sel = u.sel || {};
   if(cb.id && /^pick-all-/.test(cb.id)){
     /* seleccionar / deseleccionar todo lo que se está viendo */
-    const visibles = rowsOf(key).slice(0, u.limit);
+    const visibles = rowsOf(key);
     if(cb.checked) visibles.forEach(r => { u.sel[r.id] = true; });
     else visibles.forEach(r => { delete u.sel[r.id]; });
     renderBody(key);
