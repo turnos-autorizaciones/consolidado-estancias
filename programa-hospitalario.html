@@ -713,6 +713,12 @@ button.link:hover{color:#01407e}
   height:30px; width:auto; background:#fff; border-radius:7px; padding:2px 6px; flex:0 0 auto;
 }
 .empty-logo{display:block; width:150px; height:auto; margin:2px auto 10px; opacity:.45}
+/* El párrafo explicativo del aviso. OJO: dentro de .empty las <b> son de bloque
+   (para el título), y aquí van dentro de la frase; si no se corrigiera, cada
+   palabra en negrita se partiría en un renglón suelto y el texto quedaría hecho
+   trizas. */
+.empty-txt{display:block; max-width:780px; margin:6px auto 0; line-height:1.65}
+.empty-txt b{display:inline; font-size:inherit; color:var(--ink); margin:0; font-weight:800}
 .inst-card{display:flex; align-items:center; gap:16px}
 .inst-card img{width:190px; max-width:42%; height:auto; flex:0 0 auto}
 .inst-card b{display:block; font-size:14px; color:var(--ink)}
@@ -2108,8 +2114,56 @@ function initMesPick(){
   pintarMesPick();
 }
 
+/* ====== CÓMO BUSCA EL BUSCADOR ======
+   Mira en TODOS los campos del turno (paciente, documento, ingreso, folio, EPS,
+   CUPS y su descripción, servicio, cama, especialidad, prioridad, autorizador,
+   autorización, estado y observación), y solo dentro del mes elegido.
+
+   Lo que se escribe se parte en PALABRAS y se exige que TODAS aparezcan en algún
+   campo, sin importar el orden ni dónde caigan dentro del texto:
+     · "OTERO MURGUEITO"  encuentra a "JULIAN STEVAN MURGUEITO OTERO"
+     · "CESAREA TRANSPERITONEAL" encuentra "CESAREA SEGMENTARIA TRANSPERITONEAL"
+   (Antes se buscaba la frase entera de corrido, así que esas dos no encontraban
+   nada por más que el registro estuviera ahí.)
+
+   Y cada palabra se compara de dos formas: tal cual, sin tildes ni mayúsculas, y
+   solo con letras y números. La segunda es la que hace que la cédula dé igual con
+   puntos, espacios o guiones: "1.059.609.512" y "1059609512" son la misma. */
+function palabrasBuscadas(texto){
+  return String(texto || '').split(/\s+/).filter(Boolean)
+    .map(p => ({ t: norm(p), k: keyOf(p) }))
+    .filter(p => p.t || p.k);
+}
+function coincideConLaBusqueda(r, campos, palabras){
+  return palabras.every(p => campos.some(f => {
+    const v = r[f.k];
+    return norm(v).indexOf(p.t) >= 0 || (!!p.k && keyOf(v).indexOf(p.k) >= 0);
+  }));
+}
+/* '2026-09' -> 'Septiembre 2026' */
+function nombreDeMes(clave){
+  const p = String(clave || '').split('-');
+  const m = Number(p[1]);
+  return ((MESES[m - 1] || '') + (p[0] ? ' ' + p[0] : '')).trim();
+}
+/* ¿Y en OTROS meses? Sirve para decírselo a quien busca y no encuentra nada: casi
+   siempre el registro está, pero en otro mes del consolidado. */
+function coincidenciasEnOtrosMeses(key, texto){
+  const s = SCHEMAS[key], palabras = palabrasBuscadas(texto);
+  if(!palabras.length) return [];
+  const porMes = {};
+  state.data[key].forEach(r => {
+    if(fechaEnMes(r.fecha)) return;                       /* ese mes ya se miró */
+    if(!coincideConLaBusqueda(r, s.fields, palabras)) return;
+    const c = claveMes(r.fecha); if(!c) return;
+    porMes[c] = (porMes[c] || 0) + 1;
+  });
+  return Object.keys(porMes).sort().map(c => ({ mes: c, n: porMes[c] }));
+}
+
 function rowsOf(key){
   const s = SCHEMAS[key], u = state.ui[key], q = norm(u.q);
+  const palabras = q ? palabrasBuscadas(u.q) : [];
   const list = state.data[key].filter(r => {
     /* solo los del mes elegido en la cabecera */
     if(!fechaEnMes(r.fecha)) return false;
@@ -2120,7 +2174,8 @@ function rowsOf(key){
     if(u.fis === 'si' && !String(r.fisico || '').trim()) return false;
     if(u.fis === 'no' &&  String(r.fisico || '').trim()) return false;
     if(!q) return true;
-    return s.fields.some(f => norm(r[f.k]).indexOf(q) >= 0);
+    if(!palabras.length) return true;
+    return coincideConLaBusqueda(r, s.fields, palabras);
   });
   /* Orden: de MENOR a MAYOR por fecha y hora (el más antiguo primero). */
   list.sort((a, b) => {
@@ -2368,18 +2423,42 @@ function renderBody(key){
   const tb = $('#body-' + key);
   const nomMes = etiquetaMesActual();
   if(!all.length){
-    /* DOS CASOS MUY DISTINTOS, y conviene no confundirlos:
-       · hay registros en otros meses  -> es el mes elegido, y se dice cuál;
+    /* TRES CASOS MUY DISTINTOS, y conviene no confundirlos:
+       · hay una BÚSQUEDA puesta     -> se explica qué mira y, si el registro está
+                                        en otro mes, se nombra el mes;
+       · hay registros en otros meses -> es el mes elegido, y se dice cuál;
        · no hay NINGÚN registro cargado -> el problema no es el mes, y se avisa
          de que los datos se cargan de la base (conexión / volver a entrar). */
     const hayAlguno = state.data[key].length > 0;
-    const titulo = 'Sin registros ' + esc(s.short) + (hayAlguno && nomMes ? ' en ' + esc(nomMes) : '');
-    const detalle = hayAlguno
-      ? (nomMes ? 'El mes de ' + esc(nomMes) + ' todavía no tiene registros. Sube el archivo de ' + esc(nomMes) + ' o cambia el mes en la cabecera.'
-                : 'Sube tu archivo Excel/CSV o crea el primer registro.')
-      : 'No hay ningún registro cargado. Los datos vienen de la base: revisa la conexión y vuelve a entrar. Si acabas de subir un archivo, espera unos segundos.';
-    tb.innerHTML = '<tr><td colspan="' + (campos(key).length + 2 + (key === 'tq' ? 1 : 0)) + '"><div class="empty"><img class="empty-logo" src="' + LOGO_HUSJ + '" alt=""><b>' + titulo + '</b>' +
-      detalle + '</div></td></tr>';
+    const busqueda = String(u.q || '').trim();
+    const colspan = campos(key).length + 2 + (key === 'tq' ? 1 : 0);
+    if(busqueda){
+      /* El aviso que más falta hacía: quien escribe un nombre y ve la tabla vacía
+         piensa que el buscador no sirve. Aquí se le dice, con sus palabras, dónde
+         mira, con qué reglas, y —si el registro está en otro mes— dónde está. */
+      const otros = coincidenciasEnOtrosMeses(key, busqueda);
+      const donde = otros.length
+        ? ' <b>Sí hay ' + otros.map(o => o.n + ' en ' + esc(nombreDeMes(o.mes))).join(' y ') +
+          '</b>: cambia el mes en la cabecera y aparecerá.'
+        : ' Revisa cómo está escrito, o prueba con menos palabras.';
+      tb.innerHTML = '<tr><td colspan="' + colspan + '"><div class="empty">' +
+        '<img class="empty-logo" src="' + LOGO_HUSJ + '" alt="">' +
+        '<b>Nada coincide con «' + esc(busqueda) + '»' + (nomMes ? ' en ' + esc(nomMes) : '') + '.</b>' +
+        '<span class="empty-txt">El buscador mira en <b>todos</b> los datos del turno ' +
+        '—paciente, documento, ingreso, folio, EPS, CUPS y su descripción, servicio, cama, ' +
+        'especialidad, prioridad, autorizador, autorización, estado y observación— y ' +
+        '<b>solo dentro de ' + (nomMes ? esc(nomMes) : 'el mes elegido') + '</b>. ' +
+        'Da igual el orden de las palabras y la cédula da igual con puntos o sin ellos.' +
+        donde + '</span></div></td></tr>';
+    } else {
+      const titulo = 'Sin registros ' + esc(s.short) + (hayAlguno && nomMes ? ' en ' + esc(nomMes) : '');
+      const detalle = hayAlguno
+        ? (nomMes ? 'El mes de ' + esc(nomMes) + ' todavía no tiene registros. Sube el archivo de ' + esc(nomMes) + ' o cambia el mes en la cabecera.'
+                  : 'Sube tu archivo Excel/CSV o crea el primer registro.')
+        : 'No hay ningún registro cargado. Los datos vienen de la base: revisa la conexión y vuelve a entrar. Si acabas de subir un archivo, espera unos segundos.';
+      tb.innerHTML = '<tr><td colspan="' + colspan + '"><div class="empty"><img class="empty-logo" src="' + LOGO_HUSJ + '" alt=""><b>' + titulo + '</b>' +
+        detalle + '</div></td></tr>';
+    }
   } else {
     /* i + 1 = número de registro (1, 2, 3...). Se numera en el mismo orden en que
        se muestran y se exportan los registros, así que "Mostrando 300 de 528"
@@ -2587,7 +2666,16 @@ function buildToolbar(key){
        si acaso, queda el vigilante limpiarRellenoDelNavegador(). */
     '<input class="search" type="search" data-act="q" name="ph-buscar-' + esc(key) + '" ' +
     'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" readonly ' +
-     'placeholder="Buscar en ' + esc(s.short) + '…" />' +
+     /* El buscador DICE lo que busca: antes ponía solo "Buscar en TQ…" y había
+        que adivinar qué campos miraba. El detalle completo sale al pasar el mouse
+        por encima, y si no encuentra nada el propio aviso lo explica. */
+     'placeholder="Buscar: paciente, documento, folio, EPS, CUPS, cama…" ' +
+     'title="Mira en TODOS los datos del turno: paciente, documento, ingreso, folio, ' +
+     'EPS, CUPS y su descripción, servicio, cama, especialidad, prioridad, autorizador, ' +
+     'autorización, estado y observación. No importa el orden de las palabras: ' +
+     'OTERO MURGUEITO encuentra a JULIAN STEVAN MURGUEITO OTERO. La cédula da igual con ' +
+     'puntos o sin ellos: 1.059.609.512 = 1059609512. Busca solo dentro del mes elegido ' +
+     'en la cabecera." />' +
      /* Los filtros van juntos en su propio renglón. Se agrupan en una caja que
         ocupa el ancho entero: así empiezan siempre en la línea de abajo sin
         gastar un renglón de separación (que era lo que hacía el corte suelto). */
