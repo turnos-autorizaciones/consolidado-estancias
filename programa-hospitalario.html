@@ -47,7 +47,15 @@
   --th-fg:#ffffff;
 }
 *{box-sizing:border-box}
-html,body{margin:0; padding:0; overflow-x:hidden}
+/* El corte horizontal va con «clip», no con «hidden».
+   OJO, que esto importa: «overflow-x:hidden» convierte el <body> en un
+   contenedor de desplazamiento, y entonces TODO lo que se quiere fijar (la
+   cabecera, las pestañas) deja de pegarse al borde de la pantalla: se quedan
+   en su sitio y se van con la página. «clip» recorta igual pero no crea ese
+   contenedor, así que lo fijo sí funciona.
+   Se deja «hidden» delante como respaldo: si un navegador viejo no entiende
+   «clip», se queda con «hidden» y todo sigue como estaba. */
+html,body{margin:0; padding:0; overflow-x:hidden; overflow-x:clip}
 body{
   font-family:'Quicksand',system-ui,-apple-system,'Segoe UI',sans-serif;
   background:var(--bg); color:var(--ink); font-size:15px; line-height:1.45;
@@ -73,7 +81,10 @@ header.app{
   /* OJO: overflow visible — el menú de la flecha del usuario tiene que poder
      salir por debajo de la cabecera. El brillo que la recorre va dentro de
      .hdr-glow, que sí recorta, para que no se escape por la pantalla. */
-  position:relative; overflow:visible; border-radius:0 0 var(--radius) var(--radius);
+  /* Se queda PEGADA arriba del todo al desplazar la página: la barra azul con el
+     nombre del hospital, el mes y el usuario siempre a la vista. */
+  position:sticky; top:0; z-index:50; overflow:visible;
+  border-radius:0 0 var(--radius) var(--radius);
   background:var(--grad); color:#fff; margin:0 0 18px;
   padding:22px 24px 18px; padding:22px var(--pad) 18px;
   box-shadow:var(--shadow);
@@ -194,7 +205,17 @@ header.app{
 .chip:hover{background:rgba(255,255,255,.28)}
 
 /* ============ PESTAÑAS ============ */
-nav.tabs{display:flex; gap:10px; flex-wrap:wrap; margin:0 0 16px}
+nav.tabs{
+  display:flex; gap:10px; flex-wrap:wrap; margin:0 0 16px;
+  /* Se pegan justo DEBAJO de la cabecera, no en el borde de la pantalla. El alto
+     de la cabecera cambia según la pantalla (el escudo y los rellenos se ajustan
+     solos), así que el número no se escribe a mano: lo mide el programa y lo deja
+     en --cabecera-alto (ver ajustarPegajosos).
+     El fondo es necesario: sin él, las filas de la tabla se verían pasar por
+     detrás de las pestañas mientras se desplaza. */
+  position:sticky; top:var(--cabecera-alto, 0px); z-index:49;
+  background:var(--bg);
+}
 nav.tabs button{
   appearance:none; border:1px solid var(--line); background:#fff; color:var(--ink-soft);
   padding:11px 16px; border-radius:14px; font:inherit; font-weight:700; font-size:13.5px;
@@ -245,11 +266,15 @@ section.panel.visible{display:block; animation:fade .25s ease}
 
 /* toolbar */
 .toolbar{display:flex; gap:9px; flex-wrap:wrap; align-items:center; margin-bottom:12px}
-/* La barra del reporte (Subir Excel/CSV, Nuevo registro, buscador y filtros) se
-   queda pegada arriba cuando se desplaza la página, para no tener que volver a
-   subir a buscarla. Si el navegador no la puede fijar, no cambia nada. */
+/* La barra del reporte (Subir Excel/CSV, Nuevo registro, buscador y filtros).
+   NO se fija: se va con la página. Antes decía `sticky` pero no llegaba a
+   pegarse nunca (lo impedía el `overflow-x:hidden` del <body>); al arreglar eso
+   habría empezado a pegarse justo DEBAJO de las pestañas, y eso son unos 90 px
+   menos de tabla a la vista. Como lo que se pidió es ver más registros, la barra
+   se deja suelta a propósito. Si algún día se quiere fija, basta con devolverle
+   `position:sticky; top:calc(var(--cabecera-alto) + var(--pestanas-alto))`. */
 #tool-tq, #tool-no{
-  position:sticky; top:0; z-index:7;
+  position:relative; z-index:7;
   background:var(--card); padding:4px 0 8px; margin-bottom:4px;
   /* no se deja comprimir cuando la pantalla es baja: la barra conserva su alto */
   flex:0 0 auto;
@@ -3696,10 +3721,27 @@ function initHBars(){
   programarHBars();
 }
 
+/* ====== LA CABECERA Y LAS PESTAÑAS SE QUEDAN FIJAS ======
+   Al desplazar la página, la barra azul y las pestañas se pegan arriba, para no
+   perder de vista ni el mes ni la sección. Las pestañas se pegan justo DEBAJO de
+   la cabecera, así que hay que saber cuánto mide ésta: cambia según la pantalla
+   (el escudo y los rellenos se ajustan solos), de modo que se mide y se deja en
+   --cabecera-alto. Un número fijo se desajustaría y dejaría un hueco o un solape. */
+function ajustarPegajosos(){
+  const cab = document.querySelector('header.app');
+  if(!cab) return;
+  document.documentElement.style.setProperty('--cabecera-alto', cab.offsetHeight + 'px');
+}
+
 function init(){
   loadAll();
   KEYS.forEach(k => { buildToolbar(k); renderPanel(k); });
   initHBars();
+  ajustarPegajosos();
+  /* la cabecera cambia de alto al girar la pantalla, al cambiar el tamaño de la
+     ventana y cuando termina de cargar la letra de la web */
+  window.addEventListener('resize', ajustarPegajosos);
+  window.addEventListener('load', ajustarPegajosos);
   /* El navegador rellena el buscador sin avisar (ni un solo evento), así que se
      revisa por tiempo: unas cuantas veces al arrancar —que es cuando suele
      rellenar— y luego una mirada ligera cada 800 ms, porque puede hacerlo en
