@@ -327,6 +327,26 @@ textarea{min-height:74px; resize:vertical}
 .table-wrap::-webkit-scrollbar-thumb{background:#b9cfe6; border:3px solid #eef5fc; border-radius:99px}
 .table-wrap::-webkit-scrollbar-thumb:hover{background:#8fbde8}
 .table-wrap::-webkit-scrollbar-corner{background:#eef5fc}
+
+/* ============ BARRA HORIZONTAL PEGADA AL BORDE DE ABAJO ============
+   La tabla es más ancha que la pantalla y su barra propia vive al final del
+   cuadro. Como el cuadro ahora es alto, esa barra puede quedar fuera de la
+   ventana y habría que bajar a buscarla. Esta va PEGADA al borde de abajo de la
+   pantalla y manda sobre la otra: siempre a mano, sin bajar nada.
+   Solo sale cuando de verdad hace falta, es decir, cuando la tabla no cabe a lo
+   ancho en ese computador. */
+.hbar{
+  position:fixed; left:0; bottom:0; height:16px; z-index:45;
+  background:#eef5fc; border-top:1px solid #cfe4fa;
+  cursor:pointer; user-select:none; touch-action:none;
+}
+.hbar[hidden]{display:none}
+.hbar-pulgar{
+  position:absolute; top:3px; left:0; width:60px; height:10px;
+  background:#b9cfe6; border-radius:99px;
+}
+.hbar-pulgar:hover{background:#8fbde8}
+.hbar-pulgar:active{background:#6fa8dc}
 /* registros y encabezado: los manda --fs-tabla (arriba, en :root) */
 table{border-collapse:separate; border-spacing:0; width:100%; font-size:var(--fs-tabla)}
 /* el encabezado va en azul pleno (--th-bg) y la fila también: así no se ve el
@@ -740,78 +760,36 @@ button.link:hover{color:#01407e}
    poder arrastrarla. Ahora vale en cualquier ancho de escritorio, y sin el suelo
    de 240 px que era justo lo que hacía que la página entera se desplazara. */
 @media (min-width:761px){
-  /* solo las pestañas con tabla (TQ y N.O.); Listas y Configuración quedan igual.
-     El ancho base es 0 (no «auto») a propósito: con «auto», el alto enorme de la
-     tabla (533 filas) se usa como base del reparto, la columna se infla y la
-     página entera acaba desplazándose esos 20-30 px de más — que son justo los
-     que dejaban la barra horizontal fuera de la pantalla. Con base 0, el alto
-     sale del espacio que queda y el cuadro encaja al píxel. */
-  #panel-tq.visible, #panel-no.visible{display:flex; flex-direction:column; flex:1 1 0; min-height:0}
-  /* el margen de abajo de la tarjeta ya no hace falta (no hay nada debajo) y su
-     alto se lo queda la tabla */
-  #panel-tq.visible > .card, #panel-no.visible > .card{
-    flex:1 1 0; display:flex; flex-direction:column; min-height:0; margin-bottom:0;
-  }
+  /* El cuadro de registros tiene su PROPIO alto, generoso, y crece con la ventana.
+     Antes se estiraba solo hasta donde llegaba la pantalla: en un portátil bajo
+     eso dejaba cuatro filas a la vista. Ahora manda este alto, y si no cabe en la
+     ventana la página se desplaza — que es lo correcto cuando lo que se quiere es
+     VER MÁS REGISTROS.
+     Nada de esto toca la cabecera, los contadores ni la barra de herramientas:
+     se quedan con su tamaño y su aire, sin apretujar. */
   #panel-tq.visible .table-wrap, #panel-no.visible .table-wrap{
-    flex:1 1 0; max-height:none; min-height:120px;
+    height:clamp(470px, calc(100vh - 90px), 900px);
+    max-height:none; min-height:0;
   }
+  /* sitio para la barra pegada abajo, para que no tape el pie ("Mostrando …") */
+  .wrap{padding-bottom:30px}
 }
 
 /* ============ PANTALLAS BAJAS (portátiles) ============ */
 /* Se compacta todo lo que está ARRIBA de la tabla (títulos, tarjetas y filtros) para
    que el cuadro de registros gane espacio y no quede hueco abajo */
 @media (max-height:860px){
-  /* Cada píxel que se recorta aquí se lo queda la tabla. Lo que se aprieta es el
-     aire (márgenes y rellenos) y los adornos (escudo, círculos de los contadores);
-     ningún dato ni control desaparece. */
-  header.app{padding:12px var(--pad) 10px; margin-bottom:12px}
+  header.app{padding:14px var(--pad) 12px}
   .brand .inst{display:none}          /* se oculta para no gastar alto de pantalla */
   .brand p{font-size:11.5px}          /* la línea del hospital, más discreta */
-  .logo{height:46px; padding:0 12px}  /* el escudo, más bajo */
-  .logo img{height:28px}
   .card-sub{display:none}             /* el texto explicativo se oculta para ganar alto */
-  nav.tabs{margin-bottom:10px}
-  nav.tabs button{padding:8px 13px}
-  .card{padding:12px}
-  .card-title{margin-bottom:2px}
-  .stats{gap:8px; margin-bottom:8px}
-  .stat{padding:7px 11px}
-  .stat .st-ic{width:34px; height:34px}
-  .stat b{font-size:18px}
+  .stats{gap:8px; margin-bottom:10px}
+  .stat{padding:8px 12px}
+  .stat b{font-size:19px}
   .stat span{font-size:10.5px}
-  .toolbar{gap:7px; margin-bottom:6px}
-  .filtros{gap:7px}
+  .toolbar{gap:7px; margin-bottom:8px}
   .search{padding:7px 10px}
   .row-info{margin-top:6px}
-}
-
-/* ============ PANTALLAS BAJAS DE VERDAD (< 720 px de alto) ============
-   Portátiles con la barra del navegador puesta, ventanas a media pantalla. Aquí
-   se aprieta de verdad todo lo que está por encima del cuadro de registros:
-   cada 80 px que se recorten aquí son dos filas más a la vista. No desaparece
-   ningún dato ni ningún control; lo único que se retira es el título de la
-   tarjeta, que repite lo que ya dice la pestaña de arriba. */
-@media (max-height:720px){
-  header.app{padding:9px var(--pad) 8px; margin-bottom:8px}
-  .logo{height:38px; padding:0 10px; border-radius:11px}
-  .logo img{height:23px}
-  .brand h1{font-size:18px}
-  nav.tabs{margin-bottom:8px; gap:8px}
-  nav.tabs button{padding:6px 12px; font-size:12.5px; border-radius:12px}
-  .card{padding:10px}
-  .card-title{display:none}
-  .stats{gap:7px; margin-bottom:7px}
-  .stat{padding:5px 10px; border-radius:12px}
-  .stat .st-ic{width:28px; height:28px}
-  .stat b{font-size:16px}
-  .stat span{font-size:9.5px}
-  .toolbar{gap:6px; margin-bottom:5px}
-  .filtros{gap:6px}
-  .btn{padding:7px 12px; font-size:12.5px; border-radius:11px}
-  .field-inline{font-size:12px; gap:5px}
-  .field-inline input, .field-inline select{padding:5px 8px}
-  .search{padding:6px 10px}
-  .row-info{margin-top:4px; font-size:11.5px}
 }
 
 /* ============ RESPONSIVE ============ */
@@ -2436,6 +2414,7 @@ function renderBody(key){
   const more = $('#more-' + key);
   if(more) more.onclick = () => { u.limit += 300; renderBody(key); };
   updateLote(key);
+  programarHBars();          /* la barra pegada abajo se ajusta al ancho real */
 }
 
 /* ==========================================================================
@@ -3627,9 +3606,100 @@ function openPanel(p){
   $$('section.panel').forEach(s => s.classList.toggle('visible', s.id === 'panel-' + p));
   window.scrollTo({top:0, behavior:'smooth'});
 }
+/* ====== BARRA HORIZONTAL PEGADA AL BORDE DE ABAJO ======
+   La tabla es más ancha que la pantalla y su barra propia vive al final del
+   cuadro de registros. Como el cuadro es alto, esa barra puede quedar fuera de
+   la ventana y habría que bajar a buscarla. Esta va PEGADA al borde de abajo de
+   la pantalla y manda sobre la otra: siempre a mano.
+   Solo aparece cuando de verdad hace falta, o sea cuando la tabla no cabe a lo
+   ancho en ese computador (si cabe, no se muestra nada). */
+const HBAR = {};
+
+function pintarHBar(k){
+  const h = HBAR[k]; if(!h) return;
+  const cuadro = h.cuadro, barra = h.barra, pulgar = h.pulgar;
+  const panel = document.getElementById('panel-' + k);
+  const aLaVista = !!panel && panel.classList.contains('visible') && panel.offsetParent !== null;
+  const sobra = cuadro.scrollWidth - cuadro.clientWidth;
+  if(!aLaVista || sobra <= 1){ barra.hidden = true; return; }
+  const r = cuadro.getBoundingClientRect();
+  const anchoPulgar = Math.max(44, Math.round(r.width * r.width / cuadro.scrollWidth));
+  const recorrido = Math.max(1, Math.round(r.width) - anchoPulgar);
+  barra.hidden = false;
+  barra.style.left = Math.round(r.left) + 'px';
+  barra.style.width = Math.round(r.width) + 'px';
+  pulgar.style.width = anchoPulgar + 'px';
+  pulgar.style.left = Math.round(recorrido * (cuadro.scrollLeft / sobra)) + 'px';
+}
+
+/* se repinta en un solo fotograma: al desplazar la página saltan muchos avisos
+   seguidos y no tiene sentido recalcular cada uno */
+let hbarPendiente = false;
+function programarHBars(){
+  if(hbarPendiente) return;
+  hbarPendiente = true;
+  requestAnimationFrame(() => { hbarPendiente = false; KEYS.forEach(pintarHBar); });
+}
+
+function initHBars(){
+  KEYS.forEach(k => {
+    const cuadro = document.querySelector('#panel-' + k + ' .table-wrap');
+    if(!cuadro) return;
+    const barra = document.createElement('div');
+    barra.className = 'hbar';
+    barra.hidden = true;
+    barra.setAttribute('aria-hidden', 'true');
+    const pulgar = document.createElement('span');
+    pulgar.className = 'hbar-pulgar';
+    barra.appendChild(pulgar);
+    document.body.appendChild(barra);
+    HBAR[k] = { barra: barra, pulgar: pulgar, cuadro: cuadro };
+
+    cuadro.addEventListener('scroll', () => pintarHBar(k), { passive: true });
+
+    /* arrastrar el pulgar mueve la tabla */
+    pulgar.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      const r = barra.getBoundingClientRect();
+      const ancho = pulgar.getBoundingClientRect().width;
+      const recorrido = Math.max(1, r.width - ancho);
+      const sobra = Math.max(1, cuadro.scrollWidth - cuadro.clientWidth);
+      const factor = sobra / recorrido;
+      const x0 = e.clientX, s0 = cuadro.scrollLeft;
+      try{ pulgar.setPointerCapture(e.pointerId); }catch(err){}
+      const mover = ev => {
+        cuadro.scrollLeft = Math.max(0, Math.min(sobra, s0 + (ev.clientX - x0) * factor));
+      };
+      const fin = () => {
+        pulgar.removeEventListener('pointermove', mover);
+        pulgar.removeEventListener('pointerup', fin);
+        pulgar.removeEventListener('pointercancel', fin);
+      };
+      pulgar.addEventListener('pointermove', mover);
+      pulgar.addEventListener('pointerup', fin);
+      pulgar.addEventListener('pointercancel', fin);
+    });
+
+    /* pulsar en el carril salta a esa altura */
+    barra.addEventListener('pointerdown', e => {
+      if(e.target === pulgar) return;
+      const r = barra.getBoundingClientRect();
+      const ancho = pulgar.getBoundingClientRect().width;
+      const recorrido = Math.max(1, r.width - ancho);
+      const sobra = Math.max(0, cuadro.scrollWidth - cuadro.clientWidth);
+      const pos = Math.max(0, Math.min(recorrido, e.clientX - r.left - ancho / 2));
+      cuadro.scrollLeft = pos * (sobra / recorrido);
+    });
+  });
+  window.addEventListener('scroll', programarHBars, { passive: true });
+  window.addEventListener('resize', programarHBars);
+  programarHBars();
+}
+
 function init(){
   loadAll();
   KEYS.forEach(k => { buildToolbar(k); renderPanel(k); });
+  initHBars();
   /* El navegador rellena el buscador sin avisar (ni un solo evento), así que se
      revisa por tiempo: unas cuantas veces al arrancar —que es cuando suele
      rellenar— y luego una mirada ligera cada 800 ms, porque puede hacerlo en
