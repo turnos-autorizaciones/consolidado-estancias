@@ -1375,11 +1375,13 @@ const state = {
   cats: {},
   cfg: {url:'', key:'', gate:{on:false, email:'', hash:''}},
   ui: {
-    /* fis: filtro del control de físico (''=todos, 'si'=recibidos, 'no'=pendientes)
+    /* est: filtro por ESTADO del turno (''=todos; un estado; '__sin__'=los que aún
+       no tienen ninguno). Se combina con `aut` para ver, por ejemplo, lo pendiente
+       de un autorizador concreto.
        sel: filas seleccionadas con la casilla, para marcar varias de una vez */
     /* mes: mes del consolidado elegido en la cabecera ('01'..'12' · '' = todos) */
-    tq:{q:'', from:'', to:'', aut:'', fis:'', mes:'', limit:300, sel:{}},
-    no:{q:'', from:'', to:'', aut:'', fis:'', mes:'', limit:300, sel:{}}
+    tq:{q:'', from:'', to:'', aut:'', est:'', mes:'', limit:300, sel:{}},
+    no:{q:'', from:'', to:'', aut:'', est:'', mes:'', limit:300, sel:{}}
   },
   editing: null,
   imp: null,
@@ -2134,11 +2136,62 @@ function palabrasBuscadas(texto){
     .map(p => ({ t: norm(p), k: keyOf(p) }))
     .filter(p => p.t || p.k);
 }
-function coincideConLaBusqueda(r, campos, palabras){
-  return palabras.every(p => campos.some(f => {
-    const v = r[f.k];
-    return norm(v).indexOf(p.t) >= 0 || (!!p.k && keyOf(v).indexOf(p.k) >= 0);
-  }));
+/* ¿el texto trae esa palabra, o el principio de una palabra?
+   Se exige que coincida ENTERA o por su PRINCIPIO, nunca en mitad de otra. Esto
+   es justo lo que evita el desconcierto de buscar "pendiente" y que salgan filas
+   cuyo estado NO es pendiente: el CIE10 de esas filas dice
+   "E106 DIABETES MELLITUS INSULINODEPENDIENTE…", y "pendiente" está DENTRO de la
+   palabra "insulinodependiente". Por lo mismo, "MURGU" sí encuentra "MURGUEITO",
+   que es cómodo cuando uno no recuerda el apellido entero. */
+function tieneLaPalabra(texto, termino){
+  if(!termino) return false;
+  let i = texto.indexOf(termino);
+  while(i >= 0){
+    if(i === 0 || texto.charAt(i - 1) === ' ') return true;
+    i = texto.indexOf(termino, i + 1);
+  }
+  return false;
+}
+/* La comparación «solo con letras y números» se reserva para cuando la palabra
+   lleva algún número: es la que hace que la cédula dé igual con puntos o sin
+   ellos. En palabras de solo letras manda la regla de arriba, que es la
+   estricta; si no, "pendiente" volvería a colarse dentro de otras palabras. */
+function coincideEnCampo(v, p){
+  if(p.t && tieneLaPalabra(norm(v), p.t)) return true;
+  return /\d/.test(p.t) && !!p.k && keyOf(v).indexOf(p.k) >= 0;
+}
+/* ¿Lo escrito aparece TAL CUAL en algún registro? Se decide UNA vez para toda la
+   consulta, nunca fila por fila (si se decidiera por fila, una consulta como
+   "CESAREA TRANSPERITONEAL" —frase que no está en ningún lado— no encontraría
+   nada, porque en todas las filas faltaría la frase).
+   Cuando la frase existe, MANDA la frase: así "PACIENTE 2" no se conforma con
+   encontrar "PACIENTE" y un "2" suelto por cualquier lado —y un 2 suelto lo lleva
+   casi todo, empezando por el año—. Cuando la frase no existe, se buscan las
+   palabras sueltas, que es lo que resuelve "OTERO MURGUEITO". */
+function fraseDeLaBusqueda(key, texto){
+  const palabras = palabrasBuscadas(texto);
+  if(palabras.length < 2) return '';
+  const frase = norm(texto);
+  if(!frase) return '';
+  const s = SCHEMAS[key];
+  const existe = state.data[key].some(r => s.fields.some(f => tieneLaPalabra(norm(r[f.k]), frase)));
+  return existe ? frase : '';
+}
+function coincideConLaBusqueda(r, campos, palabras, frase){
+  if(frase) return campos.some(f => tieneLaPalabra(norm(r[f.k]), frase));
+  return palabras.every(p => campos.some(f => coincideEnCampo(r[f.k], p)));
+}
+/* DÓNDE ha encontrado. Va en el pie del reporte y sirve para entender por qué
+   sale una fila que a simple vista no tiene nada que ver con lo escrito. */
+function enQueCamposCoincide(key, filas, palabras, frase){
+  const s = SCHEMAS[key], cuenta = [];
+  s.fields.forEach(f => {
+    const n = filas.filter(r => frase
+      ? tieneLaPalabra(norm(r[f.k]), frase)
+      : palabras.some(p => coincideEnCampo(r[f.k], p))).length;
+    if(n) cuenta.push({ label: f.label || f.k, n: n });
+  });
+  return cuenta.sort((a, b) => b.n - a.n || String(a.label).localeCompare(String(b.label)));
 }
 /* '2026-09' -> 'Septiembre 2026' */
 function nombreDeMes(clave){
@@ -2151,10 +2204,11 @@ function nombreDeMes(clave){
 function coincidenciasEnOtrosMeses(key, texto){
   const s = SCHEMAS[key], palabras = palabrasBuscadas(texto);
   if(!palabras.length) return [];
+  const frase = fraseDeLaBusqueda(key, texto);
   const porMes = {};
   state.data[key].forEach(r => {
     if(fechaEnMes(r.fecha)) return;                       /* ese mes ya se miró */
-    if(!coincideConLaBusqueda(r, s.fields, palabras)) return;
+    if(!coincideConLaBusqueda(r, s.fields, palabras, frase)) return;
     const c = claveMes(r.fecha); if(!c) return;
     porMes[c] = (porMes[c] || 0) + 1;
   });
@@ -2164,6 +2218,7 @@ function coincidenciasEnOtrosMeses(key, texto){
 function rowsOf(key){
   const s = SCHEMAS[key], u = state.ui[key], q = norm(u.q);
   const palabras = q ? palabrasBuscadas(u.q) : [];
+  const frase = q ? fraseDeLaBusqueda(key, u.q) : '';
   const list = state.data[key].filter(r => {
     /* solo los del mes elegido en la cabecera */
     if(!fechaEnMes(r.fecha)) return false;
@@ -2171,11 +2226,17 @@ function rowsOf(key){
     if(u.to   && String(r.fecha || '') > u.to)   return false;
     if(u.aut  && norm(r.autorizador) !== norm(u.aut)) return false;
     /* filtro del control de físico: recibidos / pendientes */
-    if(u.fis === 'si' && !String(r.fisico || '').trim()) return false;
-    if(u.fis === 'no' &&  String(r.fisico || '').trim()) return false;
+    /* Filtro por ESTADO. «__sin__» es la opción «Sin estado», para los turnos a los
+       que todavía no se les ha puesto ninguno. Se compara sin tildes ni mayúsculas,
+       como el resto de filtros, para que no se escapen por una diferencia de
+       escritura. */
+    if(u.est){
+      const buscado = u.est === '__sin__' ? '' : u.est;
+      if(norm(r.estado || '') !== norm(buscado)) return false;
+    }
     if(!q) return true;
     if(!palabras.length) return true;
-    return coincideConLaBusqueda(r, s.fields, palabras);
+    return coincideConLaBusqueda(r, s.fields, palabras, frase);
   });
   /* Orden: de MENOR a MAYOR por fecha y hora (el más antiguo primero). */
   list.sort((a, b) => {
@@ -2448,8 +2509,10 @@ function renderBody(key){
         '—paciente, documento, ingreso, folio, EPS, CUPS y su descripción, servicio, cama, ' +
         'especialidad, prioridad, autorizador, autorización, estado y observación— y ' +
         '<b>solo dentro de ' + (nomMes ? esc(nomMes) : 'el mes elegido') + '</b>. ' +
-        'Da igual el orden de las palabras y la cédula da igual con puntos o sin ellos.' +
-        donde + '</span></div></td></tr>';
+        'Da igual el orden de las palabras, y la cédula da igual con puntos o sin ellos. ' +
+        'Cada palabra vale entera o por su principio —MURGU encuentra a MURGUEITO—, nunca ' +
+        'en mitad de otra: por eso buscar PENDIENTE ya no saca los CIE10 que dicen ' +
+        'INSULINODEPENDIENTE.' + donde + '</span></div></td></tr>';
     } else {
       const titulo = 'Sin registros ' + esc(s.short) + (hayAlguno && nomMes ? ' en ' + esc(nomMes) : '');
       const detalle = hayAlguno
@@ -2500,10 +2563,20 @@ function renderBody(key){
   /* red de seguridad: si un registro trae la fecha en un formato que no se puede
      leer, no aparecería en ningún mes. Se avisa en vez de esconderlo. */
   const sinMes = state.data[key].filter(r => !claveMes(r.fecha)).length;
+  /* Con una búsqueda puesta se dice DÓNDE ha encontrado: es lo que permite
+     entender por qué sale una fila que a simple vista no tiene nada que ver. */
+  const palabrasInfo = palabrasBuscadas(u.q);
+  const dondeCoincide = (palabrasInfo.length && all.length)
+    ? '<span class="hint"><b>Coincide en:</b> ' +
+      enQueCamposCoincide(key, all, palabrasInfo, fraseDeLaBusqueda(key, u.q))
+        .map(c => esc(c.label) + ' (' + c.n + ')').join(' · ') +
+      '</span>'
+    : '';
   $('#info-' + key).innerHTML =
     '<span>Mostrando <b>' + shown.length + '</b> de <b>' + all.length + '</b> registro(s)' +
     (nomMes ? ' de <b>' + esc(nomMes) + '</b>' : '') +
     (all.length > shown.length ? ' filtrados' : '') + '.</span>' +
+    dondeCoincide +
     (all.length > shown.length ? '<button class="btn ghost" id="more-' + key + '">Ver 300 más</button>' : '') +
     (sinMes ? '<span class="hint" style="color:var(--warn); font-weight:700">' + sinMes +
       ' registro(s) con fecha ilegible: no entran en ningún mes.</span>' : '') +
@@ -2598,7 +2671,7 @@ async function marcarLote(key){
     }catch(err){ toast('Marcado en el navegador. Supabase: ' + esc(err.message), 'warn'); }
   }
 }
-function renderPanel(key){ renderStats(key); renderHead(key); renderBody(key); refreshAutFilter(key); }
+function renderPanel(key){ renderStats(key); renderHead(key); renderBody(key); refreshAutFilter(key); refreshEstFilter(key); }
 function refreshAutFilter(key){
   const sel = $('#tool-' + key + ' [data-act="aut"]');
   if(!sel) return;
@@ -2609,6 +2682,25 @@ function refreshAutFilter(key){
   const valores = fijos.concat(extra);
   sel.innerHTML = '<option value="">Todos</option>' + valores.map(v =>
     '<option' + (norm(v) === norm(cur) ? ' selected' : '') + '>' + esc(v) + '</option>').join('');
+}
+
+/* ====== FILTRO DE ESTADO DEL TURNO ======
+   Lista los estados del turno quirúrgico —los de la lista del programa más los que
+   ya aparezcan en los datos, para no perder ninguno— y una última opción,
+   «Sin estado», para encontrar los turnos a los que todavía no se les ha puesto
+   ninguno. Junto con el filtro de Autorizador sirve justo para lo que se pidió:
+   ver lo PENDIENTE de cada autorizador. */
+function refreshEstFilter(key){
+  const sel = $('#tool-' + key + ' [data-act="est"]');
+  if(!sel) return;
+  const cur = sel.value;
+  const fijos = ESTADOS_TQ.slice();
+  const extra = Array.from(new Set(state.data[key].map(r => String(r.estado || '').trim()).filter(Boolean)))
+                     .filter(v => !fijos.some(x => norm(x) === norm(v)));
+  sel.innerHTML = '<option value="">Todos</option>' +
+    fijos.concat(extra).map(v => '<option value="' + esc(v) + '"' +
+      (norm(v) === norm(cur) ? ' selected' : '') + '>' + esc(v) + '</option>').join('') +
+    '<option value="__sin__"' + (cur === '__sin__' ? ' selected' : '') + '>Sin estado</option>';
 }
 
 /* ---------------- el buscador y el relleno del navegador ---------------- */
@@ -2673,9 +2765,10 @@ function buildToolbar(key){
      'title="Mira en TODOS los datos del turno: paciente, documento, ingreso, folio, ' +
      'EPS, CUPS y su descripción, servicio, cama, especialidad, prioridad, autorizador, ' +
      'autorización, estado y observación. No importa el orden de las palabras: ' +
-     'OTERO MURGUEITO encuentra a JULIAN STEVAN MURGUEITO OTERO. La cédula da igual con ' +
-     'puntos o sin ellos: 1.059.609.512 = 1059609512. Busca solo dentro del mes elegido ' +
-     'en la cabecera." />' +
+     'OTERO MURGUEITO encuentra a JULIAN STEVAN MURGUEITO OTERO. Cada palabra se busca ' +
+     'entera o por su principio (MURGU encuentra MURGUEITO), nunca en mitad de otra. ' +
+     'La cédula da igual con puntos o sin ellos: 1.059.609.512 = 1059609512. ' +
+     'Busca solo dentro del mes elegido en la cabecera." />' +
      /* Los filtros van juntos en su propio renglón. Se agrupan en una caja que
         ocupa el ancho entero: así empiezan siempre en la línea de abajo sin
         gastar un renglón de separación (que era lo que hacía el corte suelto). */
@@ -2683,8 +2776,12 @@ function buildToolbar(key){
      '<span class="field-inline">Desde <input type="date" data-act="from" style="width:152px" /></span>' +
      '<span class="field-inline">Hasta <input type="date" data-act="to" style="width:152px" /></span>' +
      '<span class="field-inline">Autorizador <select data-act="aut" style="width:205px"><option value="">Todos</option></select></span>' +
-     (key === 'tq' ? '<span class="field-inline">Turno físico <select data-act="fis" style="width:150px">' +
-       '<option value="">Todos</option><option value="si">Recibidos</option><option value="no">Pendientes</option></select></span>' : '') +
+     /* Filtro de ESTADO del turno quirúrgico. Las opciones las pone
+        refreshEstFilter() con la lista del programa más los estados que aparezcan
+        en los datos, y una última opción «Sin estado». Se combina con el filtro de
+        Autorizador para ver, por ejemplo, lo PENDIENTE de cada autorizador. */
+     (key === 'tq' ? '<span class="field-inline">Estado <select data-act="est" style="width:172px">' +
+       '<option value="">Todos</option></select></span>' : '') +
      '<button class="btn ghost" data-act="clear">Limpiar</button>' +
      '</span>';
   const u = state.ui[key];
@@ -2708,7 +2805,7 @@ function buildToolbar(key){
   });
   t.addEventListener('change', e => {
     if(e.target.dataset.act === 'aut'){ u.aut = e.target.value; u.limit = 300; renderBody(key); }
-    if(e.target.dataset.act === 'fis'){ u.fis = e.target.value; u.limit = 300; renderBody(key); }
+    if(e.target.dataset.act === 'est'){ u.est = e.target.value; u.limit = 300; renderBody(key); }
   });
   t.addEventListener('click', e => {
     const b = e.target.closest('[data-act]'); if(!b) return;
@@ -2718,12 +2815,12 @@ function buildToolbar(key){
     if(a === 'xlsx') exportWorkbook();
     if(a === 'csv') exportCsv(key);
     if(a === 'clear'){
-      u.q = ''; u.from = ''; u.to = ''; u.aut = ''; u.fis = ''; u.sel = {}; u.limit = 300;
+      u.q = ''; u.from = ''; u.to = ''; u.aut = ''; u.est = ''; u.sel = {}; u.limit = 300;
       t.querySelector('[data-act="q"]').value = '';
       t.querySelector('[data-act="from"]').value = '';
       t.querySelector('[data-act="to"]').value = '';
       t.querySelector('[data-act="aut"]').value = '';
-      const fs = t.querySelector('[data-act="fis"]'); if(fs) fs.value = '';
+      const el = t.querySelector('[data-act="est"]'); if(el) el.value = '';
       renderBody(key);
     }
   });
