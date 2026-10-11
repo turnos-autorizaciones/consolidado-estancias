@@ -2244,6 +2244,8 @@ function rowsOf(key){
   const s = SCHEMAS[key], u = state.ui[key], q = norm(u.q);
   const palabras = q ? palabrasBuscadas(u.q) : [];
   const frase = q ? fraseDeLaBusqueda(key, u.q) : '';
+  /* En Turnos el trámite se llama ESTADO; en Notas, AUTORIZACIÓN. */
+  const campoEst = key === 'tq' ? 'estado' : 'autorizacion';
   const list = state.data[key].filter(r => {
     /* solo los del mes elegido en la cabecera */
     if(!fechaEnMes(r.fecha)) return false;
@@ -2251,13 +2253,12 @@ function rowsOf(key){
     if(u.to   && String(r.fecha || '') > u.to)   return false;
     if(u.aut  && norm(r.autorizador) !== norm(u.aut)) return false;
     /* filtro del control de físico: recibidos / pendientes */
-    /* Filtro por ESTADO. «__sin__» es la opción «Sin estado», para los turnos a los
-       que todavía no se les ha puesto ninguno. Se compara sin tildes ni mayúsculas,
-       como el resto de filtros, para que no se escapen por una diferencia de
-       escritura. */
+    /* Filtro del trámite (ESTADO en Turnos, AUTORIZACIÓN en Notas). «__sin__» es la
+       opción «Sin estado» / «Sin autorización», para los que aún no tienen ninguno.
+       Se compara sin tildes ni mayúsculas, como el resto de filtros. */
     if(u.est){
       const buscado = u.est === '__sin__' ? '' : u.est;
-      if(norm(r.estado || '') !== norm(buscado)) return false;
+      if(norm(r[campoEst] || '') !== norm(buscado)) return false;
     }
     if(!q) return true;
     if(!palabras.length) return true;
@@ -2488,24 +2489,23 @@ function renderStats(key){
   /* los contadores son del mes elegido: si no, no cuadrarían con la tabla */
   const all = state.data[key].filter(r => fechaEnMes(r.fecha));
   const hoy = all.filter(isHoy).length;
-  /* En Notas Operatorias lo que se persigue es la AUTORIZACIÓN: se cuentan los que
-     están PENDIENTE, que son los que faltan. (Antes contaba URGENCIAS por la
-     prioridad, una columna que ya no se muestra en Notas.) */
-  const third = key === 'tq'
-    ? {v: all.filter(r => /^AUTORIZADO$/i.test(String(r.estado || '').trim())).length, l:'Autorizados'}
-    : {v: all.filter(r => /^PENDIENTE$/i.test(String(r.autorizacion || '').trim())).length, l:'Pendientes'};
-  /* «Pendientes» = turnos cuyo ESTADO es PENDIENTE, o sea los que faltan por
-     autorizar. (No confundir con lo que falta por subir a la base: eso se ve
-     en la barra amarilla de cada fila.) */
-  const pend = all.filter(r => /^PENDIENTE$/i.test(String(r.estado || '').trim())).length;
+  /* El trámite va en ESTADO (Turnos) y en AUTORIZACIÓN (Notas). Los dos paneles
+     llevan los MISMOS contadores, salvo «En físico», que solo tiene sentido en
+     Turnos: en Notas no se maneja el control de físico.
+     AUTORIZADOS = los que ya están resueltos (AUTORIZADO / SI).
+     PENDIENTES  = los que faltan (PENDIENTE en los dos).
+     No confundir «Pendientes» con lo que falta por subir a la base: eso se ve en
+     la barra amarilla de cada fila. */
+  const campo = key === 'tq' ? 'estado' : 'autorizacion';
+  const cuenta = (valor) => all.filter(r => norm(r[campo] || '') === norm(valor)).length;
   $('#stats-' + key).innerHTML =
-    tarjeta('s-azul',   ICONO.cama,    all.length, 'Registros ' + esc(SCHEMAS[key].short)) +
-    tarjeta('s-verde',  ICONO.check,   hoy,        'De hoy') +
-    tarjeta('s-morado', ICONO.persona, third.v,    third.l) +
+    tarjeta('s-azul',   ICONO.cama,    all.length,                      'Registros ' + esc(SCHEMAS[key].short)) +
+    tarjeta('s-verde',  ICONO.check,   hoy,                             'De hoy') +
+    tarjeta('s-morado', ICONO.persona, cuenta(key === 'tq' ? 'AUTORIZADO' : 'SI'), 'Autorizados') +
     (key === 'tq'
-      ? tarjeta('s-ambar', ICONO.persona, all.filter(r => String(r.fisico || '').trim()).length, 'En físico') +
-        tarjeta('s-rojo',  ICONO.reloj,   pend, 'Pendientes')
-      : '');
+      ? tarjeta('s-ambar', ICONO.persona, all.filter(r => String(r.fisico || '').trim()).length, 'En físico')
+      : '') +
+    tarjeta('s-rojo',  ICONO.reloj, cuenta('PENDIENTE'), 'Pendientes');
 }
 /* campos que se ven en la tabla y en el formulario. Los ocultos (el sello de
    trazabilidad) solo se guardan y se exportan: no ocupan espacio en pantalla. */
@@ -2748,14 +2748,20 @@ function refreshAutFilter(key){
 function refreshEstFilter(key){
   const sel = $('#tool-' + key + ' [data-act="est"]');
   if(!sel) return;
+  /* Turnos: los ESTADOS del turno. Notas: las opciones de AUTORIZACIÓN (SI, NO,
+     PENDIENTE, VERIFICADO, CX AMBULATORIA, GESTIONADO). En los dos casos se añaden
+     los valores que ya aparezcan en los datos, para no perder ninguno escrito a
+     mano, y al final la opción de «sin nada puesto». */
+  const campo = key === 'tq' ? 'estado' : 'autorizacion';
   const cur = sel.value;
-  const fijos = ESTADOS_TQ.slice();
-  const extra = Array.from(new Set(state.data[key].map(r => String(r.estado || '').trim()).filter(Boolean)))
+  const fijos = optsFor(campo);
+  const extra = Array.from(new Set(state.data[key].map(r => String(r[campo] || '').trim()).filter(Boolean)))
                      .filter(v => !fijos.some(x => norm(x) === norm(v)));
   sel.innerHTML = '<option value="">Todos</option>' +
     fijos.concat(extra).map(v => '<option value="' + esc(v) + '"' +
       (norm(v) === norm(cur) ? ' selected' : '') + '>' + esc(v) + '</option>').join('') +
-    '<option value="__sin__"' + (cur === '__sin__' ? ' selected' : '') + '>Sin estado</option>';
+    '<option value="__sin__"' + (cur === '__sin__' ? ' selected' : '') + '>' +
+      esc(SIN_VALOR[campo] || 'Sin estado') + '</option>';
 }
 
 /* ---------------- el buscador y el relleno del navegador ---------------- */
@@ -2831,12 +2837,12 @@ function buildToolbar(key){
      '<span class="field-inline">Desde <input type="date" data-act="from" style="width:152px" /></span>' +
      '<span class="field-inline">Hasta <input type="date" data-act="to" style="width:152px" /></span>' +
      '<span class="field-inline">Autorizador <select data-act="aut" style="width:205px"><option value="">Todos</option></select></span>' +
-     /* Filtro de ESTADO del turno quirúrgico. Las opciones las pone
-        refreshEstFilter() con la lista del programa más los estados que aparezcan
-        en los datos, y una última opción «Sin estado». Se combina con el filtro de
-        Autorizador para ver, por ejemplo, lo PENDIENTE de cada autorizador. */
-     (key === 'tq' ? '<span class="field-inline">Estado <select data-act="est" style="width:172px">' +
-       '<option value="">Todos</option></select></span>' : '') +
+     /* Filtro del trámite: se llama «Estado» en los dos paneles, pero en Turnos
+        filtra por ESTADO y en Notas por AUTORIZACIÓN (su columna equivalente). Las
+        opciones las pone refreshEstFilter(). Se combina con el de Autorizador para
+        ver, por ejemplo, lo PENDIENTE de cada autorizador. */
+     '<span class="field-inline">Estado <select data-act="est" style="width:196px">' +
+       '<option value="">Todos</option></select></span>' +
      '<button class="btn ghost" data-act="clear">Limpiar</button>' +
      '</span>';
   const u = state.ui[key];
