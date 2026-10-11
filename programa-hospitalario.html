@@ -442,6 +442,14 @@ td.num{color:#0b5aa8; text-align:right; font-weight:800; font-variant-numeric:ta
 .est-egreso      {--ic:#64748b; --ebg:#eceff3; --etx:#475569}
 .est-singestion  {--ic:#db2777; --ebg:#fdeaf4; --etx:#be185d}
 .est-vacio       {--ic:#94a3b8; --ebg:#eef2f7; --etx:#64748b}
+/* AUTORIZACIÓN (Notas Operatorias): mismos colores aprobados para sus seis opciones */
+.aut-si          {--ic:#16a34a; --ebg:#e6f7ec; --etx:#137a3f}
+.aut-no          {--ic:#e11d48; --ebg:#fdeaef; --etx:#bd1a3f}
+.aut-pendiente   {--ic:#f0a300; --ebg:#fdf3dd; --etx:#95650a}
+.aut-verificado  {--ic:#0b5aa8; --ebg:#e9f3fd; --etx:#0b5aa8}
+.aut-ambulatoria {--ic:#334155; --ebg:#e9edf2; --etx:#1e293b}
+.aut-gestionado  {--ic:#0ea5e9; --ebg:#e0f2fe; --etx:#0369a1}
+.aut-vacio       {--ic:#94a3b8; --ebg:#eef2f7; --etx:#64748b}
 /* la lista que se abre al pulsar la píldora */
 .sel-menu{
   position:fixed; z-index:90; width:236px; max-height:60vh; overflow:auto;
@@ -1295,7 +1303,7 @@ const CAT_DEFAULT = {
   eps:['ASOCIACIÓN INDÍGENA DEL CAUCA AIC EPSI INDÍGENA','NUEVA EMPRESA PROMOTORA DE SALUD S.A - NUEVA EPS','ASMET SALUD EPS SAS'],
   autorizador: AUTORIZADORES.slice(),
   tipo_ingr:['AMBULATORIO','HOSPITALIZADO'],
-  autorizacion:['VERIFICADO','S'],
+  autorizacion:['SI','NO','PENDIENTE','VERIFICADO','CX AMBULATORIA','GESTIONADO'],
   estado: ESTADOS_TQ.slice(),
   servicio:['URGENCIAS GINECOOBSTETRICIA','ESTANCIA GENERAL QUIRÚRGICA','HEMATOLOGÍA','ESTANCIA GENERAL PEDIÁTRICA','CIRUGÍA ORTOPÉDICA Y TRAUMATOLOGÍA (PEDIATRICA)'],
   especialidad:['GINECOLOGÍA Y OBSTETRICIA','CIRUGÍA ONCOLÓGICA','ORTOPEDIA Y TRAUMATOLOGÍA (PEDIATRICA)','MEDICINA INTERNA'],
@@ -1344,26 +1352,40 @@ const SCHEMAS = {
     key:'no', store:'ph_no_v1', table:'notas_operatorias',
     title:'N.O. · NOTAS OPERATORIAS', short:'N.O.',
     fields:[
-      {k:'fecha',          label:'FECHA',              type:'date',  req:true, w:112, dup:true, tight:true},
-      {k:'hora',           label:'HORA 24 H',          type:'text',  w:96,  dup:true, ph:'6:25', tight:true},
-      {k:'folio_dgh',      label:'FOLIO DGH',          lines:['FOLIO','DGH'], type:'text',  w:120, dup:true, tight:true},
-      {k:'id_paciente',    label:'N° ID DE PACIENTE',  type:'text',  w:140, tight:true},
-      {k:'eps',            label:'EPS',                type:'text',  w:190, cat:'eps', full:true},
-      {k:'cups',           label:'CUPS',               type:'text',  w:104, cat:'cups', tight:true},
-      {k:'cups_descripcion',label:'CUPS_DESCRIPCION',  type:'textarea', span:true},
-      {k:'paciente',       label:'PACIENTE',           type:'text',  req:true, w:230, full:true},
-      {k:'servicio_actual',label:'SERVICIO ACTUAL',    type:'text',  w:185, cat:'servicio', full:true},
-      {k:'cama',           label:'CAMA',               type:'text',  w:104, tight:true},
-      {k:'especialidad',   label:'ESPECIALIDAD',       type:'text',  w:180, cat:'especialidad', full:true},
-      {k:'prioridad',      label:'PRIORIDAD',          type:'text',  w:112, cat:'prioridad', tight:true},
-      {k:'ac_evento',      label:'AC_EVENTO',          type:'textarea', span:true, w:360, cat:'cie10', full:true},
-      {k:'autorizador',    label:'AUTORIZADOR',        type:'select', w:170, cat:'autorizador', tight:true},
-      {k:'observacion',    label:'OBSERVACION',        type:'textarea', span:true, w:230, tight:true},
-      /* SELLO DE TRAZABILIDAD: quién digitó el registro y cuándo. No se muestra como
-         columna (no gasta espacio en la tabla), pero queda en el registro, se ve al
-         abrir el registro y viaja en las exportaciones. */
-      {k:'tramitado_por',  label:'TRAMITADO POR',      type:'text', oculto:true},
-      {k:'tramitado_en',   label:'TRAMITADO EN',       type:'text', oculto:true}
+       /* EL ORDEN DE ESTA LISTA ES EL ORDEN DE LAS COLUMNAS.
+          Encabezado aprobado (11-10-2026):
+          N° · FECHA · HORA 24 H · DOCUMENTO · PACIENTE · PROCEDIMIENTO · CUPS · EPS ·
+          INGRESO · TIPO INGRESO · CIE10 · AUTORIZACIÓN · N° DE AUTORIZACIÓN ·
+          OBSERVACION · AUTORIZADOR · ACCIONES */
+       {k:'fecha',          label:'FECHA',              type:'date',  req:true, w:108, dup:true, tight:true},
+       {k:'hora',           label:'HORA 24 H',          type:'text',  w:96,  dup:true, ph:'6:25', tight:true},
+       {k:'id_paciente',    label:'DOCUMENTO',          type:'text',  w:150, dup:true, tight:true},
+       {k:'paciente',       label:'PACIENTE',           type:'text',  req:true, w:230, full:true},
+       {k:'cups_descripcion',label:'PROCEDIMIENTO',     type:'textarea', span:true},
+       {k:'cups',           label:'CUPS',               type:'text',  w:96,  dup:true, cat:'cups', tight:true},
+       {k:'eps',            label:'EPS',                type:'text',  w:190, cat:'eps', full:true},
+       {k:'ingreso',        label:'INGRESO',            type:'text',  w:100, tight:true},
+       {k:'tipo_ingr',      label:'TIPO INGRESO',       type:'text',  w:130, cat:'tipo_ingr', tight:true},
+       {k:'ac_evento',      label:'CIE10',              type:'textarea', span:true, w:360, cat:'cie10', full:true},
+       /* AUTORIZACIÓN: píldora con menú, igual que el ESTADO de Turnos (mismo modelo
+          visual). Se trabaja a mano: la importación nunca la sobrescribe. */
+       {k:'autorizacion',   label:'AUTORIZACIÓN',       type:'select', w:150, cat:'autorizacion', tight:true},
+       {k:'num_autorizacion',label:'N° DE AUTORIZACIÓN',lines:['N° DE','AUTORIZACIÓN'], type:'text', w:150, tight:true},
+       {k:'observacion',    label:'OBSERVACION',        type:'textarea', span:true, w:230, tight:true},
+       {k:'autorizador',    label:'AUTORIZADOR',        type:'select', w:168, cat:'autorizador', tight:true},
+       /* OCULTOS: siguen guardándose y viajando en las exportaciones, pero NO ocupan
+          columna en la tabla (no entran en el reporte). El FOLIO y el SERVICIO, además,
+          ya no se importan (no tienen alias). */
+       {k:'folio_dgh',      label:'FOLIO DGH',          type:'text',  w:120, oculto:true},
+       {k:'servicio_actual',label:'SERVICIO ACTUAL',    type:'text',  w:185, cat:'servicio', full:true, oculto:true},
+       {k:'cama',           label:'CAMA',               type:'text',  w:104, tight:true, oculto:true},
+       {k:'especialidad',   label:'ESPECIALIDAD',       type:'text',  w:180, cat:'especialidad', full:true, oculto:true},
+       {k:'prioridad',      label:'PRIORIDAD',          type:'text',  w:112, cat:'prioridad', tight:true, oculto:true},
+       /* SELLO DE TRAZABILIDAD: quién digitó el registro y cuándo. No se muestra como
+          columna (no gasta espacio en la tabla), pero queda en el registro, se ve al
+          abrir el registro y viaja en las exportaciones. */
+       {k:'tramitado_por',  label:'TRAMITADO POR',      type:'text', oculto:true},
+       {k:'tramitado_en',   label:'TRAMITADO EN',       type:'text', oculto:true}
     ]
   }
 };
@@ -1559,22 +1581,25 @@ const ALIASES = {
     /* control del turno en físico (por si viene en el archivo como columna) */
     fisico:['FISICO','TURNOFISICO','ENFISICO','RECIBIDO','RECIBIDOFISICO','FISICORECIBIDO','FECHAFISICO']
   },
+  /* Notas Operatorias. Encabezado aprobado el 11-10-2026.
+     OJO con lo que NO está en esta lista, que es a propósito: el FOLIO (HCNUMFOL),
+     el SERVICIO, el COD_SOAT y el MEDICO no entran en el reporte, así que no tienen
+     destino y el programa los ignora al subir el archivo. */
   no: {
     fecha:['FECHA','FECHAPROCEDIMIENTO','FECHAINGRESO'],
     hora:['HORA','HORA24H'],
-    folio_dgh:['FOLIODGH','HCNUMFOL','NUMFOL','FOLIO','FOLIODC'],
     id_paciente:['NIDDEPACIENTE','IDPACIENTE','NIDPACIENTE','NUMEROIDPACIENTE','IDENTIFICACION','DOCUMENTO'],
-    eps:['EPS','ENTIDAD','ASEGURADORA'],
-    cups:['CUPS','CODIGOCUPS','CODIGO'],
-    cups_descripcion:['CUPSDESCRIPCION','DESCRIPCIONCUPS','DESCRIPCIONPROCEDIMIENTO','PROCEDIMIENTO','DESCRIPCION'],
     paciente:['PACIENTE','NOMBREPACIENTE','NOMPACIENTE','NOMBRES','NOMBRE'],
-    servicio_actual:['SERVICIOACTUAL','SERVICIO'],
-    cama:['CAMA','CAMAACTUAL'],
-    especialidad:['ESPECIALIDAD'],
-    prioridad:['PRIORIDAD','PRIORIDADATENCION','URGENCIA'],
+    cups_descripcion:['CUPSDESCRIPCION','DESCRIPCIONCUPS','DESCRIPCIONPROCEDIMIENTO','PROCEDIMIENTO','DESCRIPCION'],
+    cups:['CUPS','CODIGOCUPS','CODCUPS','CODIGO'],
+    eps:['EPS','ENTIDAD','ASEGURADORA','TERPRINOM'],
+    ingreso:['AINCONSEC','NINGRESO','NUMEROINGRESO','INGRESO'],
+    tipo_ingr:['TIPOINGR','TIPOINGRESO','TIPODEINGRESO'],
     ac_evento:['ACEVENTO','ACTIVIDADEVENTO','EVENTO','CIE10','DIAGNOSTICOS','DIAGNOSTICO'],
-    autorizador:['AUTORIZADOR','RESPONSABLE','USUARIO'],
-    observacion:['OBSERVACION','OBSERVACIONES','OBS','NOTA']
+    autorizacion:['AUTORIZACION'],
+    num_autorizacion:['NDEAUTORIZACION','NUMERODEAUTORIZACION','NOAUTORIZACION','NUMAUTORIZACION','NUMEROAUTORIZACION'],
+    observacion:['OBSERVACION','OBSERVACIONES','OBS','NOTA'],
+    autorizador:['AUTORIZADOR','RESPONSABLE','USUARIO']
   }
 };
 function autoMap(key, header){
@@ -1598,7 +1623,7 @@ function dupKey(key, rec){
 }
 /* Campos que se trabajan A MANO en la tabla: una importacion nunca los sobrescribe.
    Si hay que cambiarlos de nuevo, se hace en la tabla o en el formulario. */
-const CAMPOS_MANUALES = ['autorizador', 'estado', 'observacion', 'num_autorizacion'];
+const CAMPOS_MANUALES = ['autorizador', 'estado', 'autorizacion', 'observacion', 'num_autorizacion'];
 
 /* Valores del Excel que SI pueden aplicarse sobre un registro que YA existe.
    Deja fuera:
@@ -2259,12 +2284,6 @@ const isPending = r => r._sync !== 'synced';
 const isHoy = r => String(r.fecha || '') === isoFromDate(new Date());
 function verified(r){ return /VERIFIC/i.test(String(r.autorizacion || '')); }
 
-function pillAut(v){
-  if(!v) return '<span class="pill muted">—</span>';
-  if(/VERIFIC/i.test(v)) return '<span class="pill ok">' + esc(v) + '</span>';
-  if(/^S$/i.test(String(v).trim())) return '<span class="pill warn">S · sin verificar</span>';
-  return '<span class="pill info">' + esc(v) + '</span>';
-}
 /* opciones de un desplegable: lista fija + lista editable (Listas) + valor que ya tenga el registro */
 function optsFor(catKey, extra){
   const fija = catKey === 'autorizador' ? AUTORIZADORES : (catKey === 'estado' ? ESTADOS_TQ : []);
@@ -2343,15 +2362,45 @@ function iconoEstado(v){
 }
 /* Lo que se lee cuando el campo está vacío (el autorizador muestra «—» en la
    píldora y «Sin autorizador» en la lista) */
-const SIN_VALOR = { estado:'Sin estado', prioridad:'Sin prioridad', autorizador:'Sin autorizador' };
+/* ====== AUTORIZACIÓN (Notas Operatorias) ======
+   Mismo modelo visual que el ESTADO de Turnos: píldora de color con su icono y un
+   menú donde cada opción sale con su color. Las opciones aprobadas son:
+   SI · NO · PENDIENTE · VERIFICADO · CX AMBULATORIA · GESTIONADO. */
+function autorizacionClase(v){
+  const t = norm(v);
+  if(!t)                    return ' aut-vacio';
+  if(/^SI\b/.test(t))       return ' aut-si';
+  if(/^NO\b/.test(t))       return ' aut-no';
+  if(/PENDIENTE/.test(t))   return ' aut-pendiente';
+  if(/VERIFICAD/.test(t))   return ' aut-verificado';
+  if(/AMBULATORIA/.test(t)) return ' aut-ambulatoria';
+  if(/GESTIONAD/.test(t))   return ' aut-gestionado';
+  return ' aut-vacio';
+}
+function iconoAutorizacion(v){
+  const t = norm(v);
+  const S = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" ' +
+            'stroke-width="2.9" stroke-linecap="round" stroke-linejoin="round">';
+  if(!t)                    return S + '<path d="M7 12h10"/></svg>';
+  if(/^SI\b/.test(t))       return S + '<path d="M5.4 12.7l4.3 4.3 8.9-9.6"/></svg>';
+  if(/^NO\b/.test(t))       return S + '<path d="M7.6 7.6l8.8 8.8M16.4 7.6l-8.8 8.8"/></svg>';
+  if(/PENDIENTE/.test(t))   return S + '<circle cx="12" cy="12" r="8.3"/><path d="M12 7.4V12l3 1.9"/></svg>';
+  if(/VERIFICAD/.test(t))   return S + '<path d="M12 3.4l6.5 2.7v5.7c0 3.9-2.6 6.8-6.5 8.1-3.9-1.3-6.5-4.2-6.5-8.1V6.1z"/><path d="M9.3 12.2l2 2 3.6-4"/></svg>';
+  if(/AMBULATORIA/.test(t)) return S + '<circle cx="12" cy="12" r="8.4"/><path d="M12 8.3v7.4M8.3 12h7.4"/></svg>';
+  if(/GESTIONAD/.test(t))   return S + '<circle cx="12" cy="12" r="3"/><path d="M12 3.7v2.1M12 18.2v2.1M4.7 12h2.1M17.2 12h2.1M6.9 6.9l1.5 1.5M15.6 15.6l1.5 1.5M17.1 6.9l-1.5 1.5M8.4 15.6l-1.5 1.5"/></svg>';
+  return S + '<circle cx="12" cy="12" r="8.3"/></svg>';
+}
+const SIN_VALOR = { estado:'Sin estado', prioridad:'Sin prioridad', autorizador:'Sin autorizador', autorizacion:'Sin autorización' };
 function claseDe(campo, v){
-  if(campo === 'estado')    return estadoClase(v);
-  if(campo === 'prioridad') return prioClase(v);
+  if(campo === 'estado')       return estadoClase(v);
+  if(campo === 'prioridad')    return prioClase(v);
+  if(campo === 'autorizacion') return autorizacionClase(v);
   return ' aut';                     /* autorizador: color fijo */
 }
 function iconoDe(campo, v){
-  if(campo === 'estado')    return iconoEstado(v);
-  if(campo === 'prioridad') return iconoPrioridad(v);
+  if(campo === 'estado')       return iconoEstado(v);
+  if(campo === 'prioridad')    return iconoPrioridad(v);
+  if(campo === 'autorizacion') return iconoAutorizacion(v);
   return iconoPersona();             /* autorizador */
 }
 /* Silueta de persona (hereda el color del círculo que la contiene) */
@@ -2369,7 +2418,8 @@ function pillCampo(campo, rec){
   const etiqueta = cur ? esc(cur) : (esAut ? '—' : SIN_VALOR[campo]);
   return '<button type="button" class="pill-cel' + claseDe(campo, cur) + '" data-id="' + esc(rec.id) +
          '" data-field="' + esc(campo) + '" title="Cambiar ' + esc(campo.toUpperCase()) + '">' +
-         '<i class="pill-ic' + (esEstado || esAut ? ' aro' : '') + '">' + iconoDe(campo, cur) + '</i>' +
+         '<i class="pill-ic' + (esEstado || esAut || campo === 'autorizacion' ? ' aro' : '') + '">' +
+         iconoDe(campo, cur) + '</i>' +
          '<span class="pill-tx">' + etiqueta + '</span>' +
          '<svg class="pill-cv" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
          'stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>';
@@ -2377,7 +2427,9 @@ function pillCampo(campo, rec){
 /* Una fila del menú (una opción) */
 function filaMenuDe(campo, v){
   const t = String(v || '').trim();
-  const esEstado = (campo === 'estado');
+  /* AUTORIZACIÓN se pinta como el ESTADO: opción con su color y su icono, sin fila
+     de las «claras» (esas son para el autorizador y la prioridad). */
+  const esEstado = (campo === 'estado' || campo === 'autorizacion');
   const esAut    = (campo === 'autorizador');
   return '<button type="button" class="sel-op' + claseDe(campo, t) +
          (esEstado ? '' : (esAut ? ' aut-row' : ' pri-row')) + '" data-v="' + esc(t) + '">' +
@@ -2392,14 +2444,14 @@ function selectHtml(f, rec){
   const cur = String(rec[f.k] || '').trim();
   /* ESTADO y PRIORIDAD van como píldora con menú propio: es la única forma de
      que las opciones lleven su icono y su color, como el diseño aprobado. */
-  if(f.cat === 'estado' || f.cat === 'prioridad' || f.cat === 'autorizador') return pillCampo(f.k, rec);
+  if(f.cat === 'estado' || f.cat === 'prioridad' || f.cat === 'autorizador' ||
+     f.cat === 'autorizacion') return pillCampo(f.k, rec);
   const opts = ['<option value="">—</option>'].concat(optsFor(f.cat, cur).map(v =>
     '<option' + (norm(v) === norm(cur) ? ' selected' : '') + '>' + esc(v) + '</option>'));
   return '<select class="cell-sel" data-id="' + esc(rec.id) +
          '" data-field="' + esc(f.k) + '" title="Selecciona ' + esc(f.label) + '">' + opts.join('') + '</select>';
 }
 function cellHtml(f, v){
-  if(f.k === 'autorizacion') return pillAut(v);
   if(f.type === 'date'){
     const d = fmtDate(v);
     return d ? '<span class="clamp" title="' + esc(d) + '">' + esc(d) + '</span>' : '<span style="color:#8aa6c0">—</span>';
@@ -2436,9 +2488,12 @@ function renderStats(key){
   /* los contadores son del mes elegido: si no, no cuadrarían con la tabla */
   const all = state.data[key].filter(r => fechaEnMes(r.fecha));
   const hoy = all.filter(isHoy).length;
+  /* En Notas Operatorias lo que se persigue es la AUTORIZACIÓN: se cuentan los que
+     están PENDIENTE, que son los que faltan. (Antes contaba URGENCIAS por la
+     prioridad, una columna que ya no se muestra en Notas.) */
   const third = key === 'tq'
     ? {v: all.filter(r => /^AUTORIZADO$/i.test(String(r.estado || '').trim())).length, l:'Autorizados'}
-    : {v: all.filter(r => /URGEN/i.test(String(r.prioridad || ''))).length, l:'Urgencias'};
+    : {v: all.filter(r => /^PENDIENTE$/i.test(String(r.autorizacion || '').trim())).length, l:'Pendientes'};
   /* «Pendientes» = turnos cuyo ESTADO es PENDIENTE, o sea los que faltan por
      autorizar. (No confundir con lo que falta por subir a la base: eso se ve
      en la barra amarilla de cada fila.) */
@@ -2932,7 +2987,8 @@ function camposHistorial(key){
   return (key === 'tq')
     ? [['estado','ESTADO'], ['autorizador','AUTORIZADOR'],
        ['num_autorizacion','N° DE AUTORIZACIÓN'], ['observacion','OBSERVACIÓN']]
-    : [['ac_evento','AC_EVENTO'], ['autorizador','AUTORIZADOR'], ['observacion','OBSERVACIÓN']];
+    : [['autorizacion','AUTORIZACIÓN'], ['num_autorizacion','N° DE AUTORIZACIÓN'],
+       ['ac_evento','CIE10'], ['autorizador','AUTORIZADOR'], ['observacion','OBSERVACIÓN']];
 }
 function etiquetaHist(key, campo){
   const p = camposHistorial(key).find(x => x[0] === campo);
@@ -3287,6 +3343,11 @@ function sqlScript(){
          '\n-- Actualizacion de la tabla TQ al formato del reporte (por si ya la habias creado):\n' +
          ['folio_dgh','id_paciente','cups','cups_descripcion','paciente','servicio_actual','cama','especialidad','prioridad','estado','fisico','tramitado_por','tramitado_en']
             .map(c => 'alter table public.' + SCHEMAS.tq.table + ' add column if not exists ' + c + ' text;')
+            .join('\n') + '\n' +
+         '\n-- Actualizacion de la tabla NO (Notas Operatorias) al encabezado nuevo:\n' +
+         ['id_paciente','paciente','cups_descripcion','cups','eps','ingreso','tipo_ingr','ac_evento',
+          'autorizacion','num_autorizacion','observacion','autorizador']
+            .map(c => 'alter table public.' + SCHEMAS.no.table + ' add column if not exists ' + c + ' text;')
             .join('\n') + '\n' +
          '\n-- Si prefieres permitir acceso SIN iniciar sesion (menos seguro: datos de pacientes\n' +
          '-- quedarían accesibles a quien tenga el enlace), descomenta estas dos politicas:\n' +
