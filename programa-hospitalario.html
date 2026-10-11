@@ -3158,6 +3158,18 @@ async function aplicarCambioTabla(key, rec, campo, nuevo){
   if(norm(nuevo) === norm(rec[campo])) return;             /* no cambió nada */
   const antes = Object.assign({}, rec);                    /* copia para comparar */
   rec[campo] = nuevo;
+  /* ===== FIRMA AUTOMÁTICA =====
+     Al elegir una AUTORIZACIÓN (Notas) o un ESTADO (Turnos), el registro queda
+     firmado por quien lo está trabajando: se pone solo el nombre de la sesión. Así
+     no hay que escribir el nombre a mano en cada fila.
+     Es lo mismo que hace el servidor al guardar, solo que aquí se ve al instante.
+     Va ANTES de anotarHistorial para que la firma quede también en el historial, y
+     solo cuando el valor elegido NO está vacío: dejar la casilla en blanco no firma
+     nada. */
+  if(String(nuevo || '').trim() && (campo === 'autorizacion' || campo === 'estado')){
+    const yo = nombreSesion();
+    if(yo) rec.autorizador = yo;
+  }
   anotarHistorial(key, rec, antes);                        /* deja la línea del cambio */
   rec.updated_at = nowISO();
   rec._sync = 'pending';
