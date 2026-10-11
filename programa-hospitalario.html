@@ -279,8 +279,16 @@ input:focus,select:focus,textarea:focus{border-color:var(--purple); box-shadow:0
 /* el texto de ejemplo se veía casi invisible: el gris del navegador es muy claro */
 ::placeholder{color:#6b8296; opacity:1}
 textarea{min-height:74px; resize:vertical}
-.search{min-width:210px}
+/* el buscador comparte el primer renglón con los botones y se estira para
+   ocupar lo que sobre. Antes iba forzado en su propio renglón a todo lo ancho,
+   y la barra se comía cuatro renglones (145 px) que ahora se queda la tabla. */
+.search{min-width:210px; flex:1 1 210px}
 .spacer{flex:1 1 auto}
+/* corte de renglón: obliga a lo que venga detrás a empezar en línea nueva */
+.corte{flex-basis:100%; height:0; margin:0; padding:0}
+/* los filtros de la barra: caja que ocupa el ancho entero, así empiezan en el
+   segundo renglón y se reparten solos dentro de esa línea */
+.filtros{flex-basis:100%; display:flex; flex-wrap:wrap; align-items:center; gap:9px}
 
 /* stats */
 .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(158px,1fr)); gap:11px; margin-bottom:14px}
@@ -312,6 +320,13 @@ textarea{min-height:74px; resize:vertical}
   max-height:calc(100vh - 260px);                 /* respaldo para navegadores viejos */
   max-height:max(460px, calc(100vh - 260px));
 }
+/* La barra horizontal, más gorda y bien visible: con la tabla tan ancha hay que
+   poder agarrarla sin apuntar con puntería. */
+.table-wrap::-webkit-scrollbar{height:14px; width:14px}
+.table-wrap::-webkit-scrollbar-track{background:#eef5fc; border-radius:99px}
+.table-wrap::-webkit-scrollbar-thumb{background:#b9cfe6; border:3px solid #eef5fc; border-radius:99px}
+.table-wrap::-webkit-scrollbar-thumb:hover{background:#8fbde8}
+.table-wrap::-webkit-scrollbar-corner{background:#eef5fc}
 /* registros y encabezado: los manda --fs-tabla (arriba, en :root) */
 table{border-collapse:separate; border-spacing:0; width:100%; font-size:var(--fs-tabla)}
 /* el encabezado va en azul pleno (--th-bg) y la fila también: así no se ve el
@@ -719,30 +734,84 @@ button.link:hover{color:#01407e}
 /* El panel activo, su tarjeta y el cuadro de registros se estiran hasta el borde
    inferior. Así la barra (Subir Excel, buscador y filtros) y los TÍTULOS DE COLUMNA
    quedan siempre a la vista y lo único que se desplaza es la lista de registros.
-   Antes esto solo pasaba con 860px de alto o más: en un portátil normal (1366x768)
-   la página entera se desplazaba y se perdían de vista la barra y los títulos. */
-@media (min-width:761px) and (min-height:620px){
-  /* solo las pestañas con tabla (TQ y N.O.); Listas y Configuración quedan igual */
-  #panel-tq.visible, #panel-no.visible{display:flex; flex-direction:column; flex:1 1 auto; min-height:0}
-  #panel-tq.visible > .card, #panel-no.visible > .card{flex:1 1 auto; display:flex; flex-direction:column; min-height:0}
-  #panel-tq.visible .table-wrap, #panel-no.visible .table-wrap{flex:1 1 auto; max-height:none; min-height:240px}
+   Antes esto solo valía con 620 px de alto o más: en un portátil bajo no se
+   aplicaba, el cuadro se quedaba en 460 px fijos y la barra horizontal caía
+   fuera de la pantalla, así que había que bajar hasta el final de la lista para
+   poder arrastrarla. Ahora vale en cualquier ancho de escritorio, y sin el suelo
+   de 240 px que era justo lo que hacía que la página entera se desplazara. */
+@media (min-width:761px){
+  /* solo las pestañas con tabla (TQ y N.O.); Listas y Configuración quedan igual.
+     El ancho base es 0 (no «auto») a propósito: con «auto», el alto enorme de la
+     tabla (533 filas) se usa como base del reparto, la columna se infla y la
+     página entera acaba desplazándose esos 20-30 px de más — que son justo los
+     que dejaban la barra horizontal fuera de la pantalla. Con base 0, el alto
+     sale del espacio que queda y el cuadro encaja al píxel. */
+  #panel-tq.visible, #panel-no.visible{display:flex; flex-direction:column; flex:1 1 0; min-height:0}
+  /* el margen de abajo de la tarjeta ya no hace falta (no hay nada debajo) y su
+     alto se lo queda la tabla */
+  #panel-tq.visible > .card, #panel-no.visible > .card{
+    flex:1 1 0; display:flex; flex-direction:column; min-height:0; margin-bottom:0;
+  }
+  #panel-tq.visible .table-wrap, #panel-no.visible .table-wrap{
+    flex:1 1 0; max-height:none; min-height:120px;
+  }
 }
 
 /* ============ PANTALLAS BAJAS (portátiles) ============ */
 /* Se compacta todo lo que está ARRIBA de la tabla (títulos, tarjetas y filtros) para
    que el cuadro de registros gane espacio y no quede hueco abajo */
 @media (max-height:860px){
-  header.app{padding:14px var(--pad) 12px}
+  /* Cada píxel que se recorta aquí se lo queda la tabla. Lo que se aprieta es el
+     aire (márgenes y rellenos) y los adornos (escudo, círculos de los contadores);
+     ningún dato ni control desaparece. */
+  header.app{padding:12px var(--pad) 10px; margin-bottom:12px}
   .brand .inst{display:none}          /* se oculta para no gastar alto de pantalla */
   .brand p{font-size:11.5px}          /* la línea del hospital, más discreta */
+  .logo{height:46px; padding:0 12px}  /* el escudo, más bajo */
+  .logo img{height:28px}
   .card-sub{display:none}             /* el texto explicativo se oculta para ganar alto */
-  .stats{gap:8px; margin-bottom:10px}
-  .stat{padding:8px 12px}
-  .stat b{font-size:19px}
+  nav.tabs{margin-bottom:10px}
+  nav.tabs button{padding:8px 13px}
+  .card{padding:12px}
+  .card-title{margin-bottom:2px}
+  .stats{gap:8px; margin-bottom:8px}
+  .stat{padding:7px 11px}
+  .stat .st-ic{width:34px; height:34px}
+  .stat b{font-size:18px}
   .stat span{font-size:10.5px}
-  .toolbar{gap:7px; margin-bottom:8px}
+  .toolbar{gap:7px; margin-bottom:6px}
+  .filtros{gap:7px}
   .search{padding:7px 10px}
   .row-info{margin-top:6px}
+}
+
+/* ============ PANTALLAS BAJAS DE VERDAD (< 720 px de alto) ============
+   Portátiles con la barra del navegador puesta, ventanas a media pantalla. Aquí
+   se aprieta de verdad todo lo que está por encima del cuadro de registros:
+   cada 80 px que se recorten aquí son dos filas más a la vista. No desaparece
+   ningún dato ni ningún control; lo único que se retira es el título de la
+   tarjeta, que repite lo que ya dice la pestaña de arriba. */
+@media (max-height:720px){
+  header.app{padding:9px var(--pad) 8px; margin-bottom:8px}
+  .logo{height:38px; padding:0 10px; border-radius:11px}
+  .logo img{height:23px}
+  .brand h1{font-size:18px}
+  nav.tabs{margin-bottom:8px; gap:8px}
+  nav.tabs button{padding:6px 12px; font-size:12.5px; border-radius:12px}
+  .card{padding:10px}
+  .card-title{display:none}
+  .stats{gap:7px; margin-bottom:7px}
+  .stat{padding:5px 10px; border-radius:12px}
+  .stat .st-ic{width:28px; height:28px}
+  .stat b{font-size:16px}
+  .stat span{font-size:9.5px}
+  .toolbar{gap:6px; margin-bottom:5px}
+  .filtros{gap:6px}
+  .btn{padding:7px 12px; font-size:12.5px; border-radius:11px}
+  .field-inline{font-size:12px; gap:5px}
+  .field-inline input, .field-inline select{padding:5px 8px}
+  .search{padding:6px 10px}
+  .row-info{margin-top:4px; font-size:11.5px}
 }
 
 /* ============ RESPONSIVE ============ */
@@ -2509,8 +2578,7 @@ function buildToolbar(key){
     '<button class="btn ghost" data-act="csv">CSV</button>' +
     /* (el botón «Marcar recibidos» se quitó: la columna de casillas está oculta
        y no tenía sentido marcar algo que ya no se ve) */
-    '<span class="spacer"></span>' +
-    /* EL BUSCADOR Y EL RELLENO AUTOMÁTICO DEL NAVEGADOR.
+     /* EL BUSCADOR Y EL RELLENO AUTOMÁTICO DEL NAVEGADOR.
        Chrome/Edge guardan el correo con el que se entra al programa
        (autorizacioneshospitalarias@…) y lo sueltan justo aquí, porque es el
        único campo de texto libre que hay en la barra. Y lo hacen SIN avisar: no
@@ -2522,13 +2590,18 @@ function buildToolbar(key){
        si acaso, queda el vigilante limpiarRellenoDelNavegador(). */
     '<input class="search" type="search" data-act="q" name="ph-buscar-' + esc(key) + '" ' +
     'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" readonly ' +
-    'placeholder="Buscar en ' + esc(s.short) + '…" />' +
-    '<span class="field-inline">Desde <input type="date" data-act="from" style="width:152px" /></span>' +
-    '<span class="field-inline">Hasta <input type="date" data-act="to" style="width:152px" /></span>' +
-    '<span class="field-inline">Autorizador <select data-act="aut" style="width:205px"><option value="">Todos</option></select></span>' +
-    (key === 'tq' ? '<span class="field-inline">Turno físico <select data-act="fis" style="width:150px">' +
-      '<option value="">Todos</option><option value="si">Recibidos</option><option value="no">Pendientes</option></select></span>' : '') +
-    '<button class="btn ghost" data-act="clear">Limpiar</button>';
+     'placeholder="Buscar en ' + esc(s.short) + '…" />' +
+     /* Los filtros van juntos en su propio renglón. Se agrupan en una caja que
+        ocupa el ancho entero: así empiezan siempre en la línea de abajo sin
+        gastar un renglón de separación (que era lo que hacía el corte suelto). */
+     '<span class="filtros">' +
+     '<span class="field-inline">Desde <input type="date" data-act="from" style="width:152px" /></span>' +
+     '<span class="field-inline">Hasta <input type="date" data-act="to" style="width:152px" /></span>' +
+     '<span class="field-inline">Autorizador <select data-act="aut" style="width:205px"><option value="">Todos</option></select></span>' +
+     (key === 'tq' ? '<span class="field-inline">Turno físico <select data-act="fis" style="width:150px">' +
+       '<option value="">Todos</option><option value="si">Recibidos</option><option value="no">Pendientes</option></select></span>' : '') +
+     '<button class="btn ghost" data-act="clear">Limpiar</button>' +
+     '</span>';
   const u = state.ui[key];
   t.addEventListener('input', e => {
     const a = e.target.dataset.act;
