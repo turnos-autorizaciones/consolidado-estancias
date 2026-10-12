@@ -228,10 +228,12 @@ nav.tabs button.active{background:var(--azul-pestana); color:#fff; border-color:
    en las tarjetas de resumen de arriba). */
 nav.tabs button[data-panel="tq"].active{background:#1b70c3; box-shadow:0 8px 22px rgba(27,112,195,.32)}
 nav.tabs button[data-panel="no"].active{background:#2c8167; box-shadow:0 8px 22px rgba(44,129,103,.32)}
+nav.tabs button[data-panel="eg"].active{background:#a15c1f; box-shadow:0 8px 22px rgba(161,92,31,.32)}
 nav.tabs button[data-panel="listas"].active{background:#696ac5; box-shadow:0 8px 22px rgba(105,106,197,.32)}
 nav.tabs button[data-panel="config"].active{background:#477b8f; box-shadow:0 8px 22px rgba(71,123,143,.32)}
 nav.tabs button[data-panel="tq"] .tag{background:#f2f8fe; color:#1b70c3; border-color:#cfe2f4}
 nav.tabs button[data-panel="no"] .tag{background:#e8f6f1; color:#237a5f; border-color:#c3e6db}
+nav.tabs button[data-panel="eg"] .tag{background:#fdf1e3; color:#85500f; border-color:#f2ddc2}
 nav.tabs button[data-panel="listas"] .tag{background:#eeedfa; color:#5c5cb0; border-color:#d6d5f0}
 nav.tabs button[data-panel="config"] .tag{background:#e9f2f5; color:#3d7389; border-color:#cfe3e9}
 nav.tabs button.active .tag{background:rgba(255,255,255,.22); color:#fff; border-color:rgba(255,255,255,.4)}
@@ -449,6 +451,13 @@ td.num{color:#0b5aa8; text-align:right; font-weight:800; font-variant-numeric:ta
 .est-gestionado  {--ic:#0d9488; --ebg:#e2f5f3; --etx:#0f766e}
 .est-ambulatoria {--ic:#4f46e5; --ebg:#e9e9fd; --etx:#4038c4}
 .est-egreso      {--ic:#64748b; --ebg:#eceff3; --etx:#475569}
+/* EGRESOS: los cuatro colores del menú aprobado — COMPLETO verde, PENDIENTE ámbar,
+   GESTIONADO azul claro (el mismo que usa Notas) y EGRESO INCOMPLETO rojo. Se
+   declaran aparte para no cambiar el color que GESTIONADO ya tiene en Turnos. */
+.est-completo     {--ic:#16a34a; --ebg:#e6f7ec; --etx:#137a3f}
+.est-eg-pendiente {--ic:#f0a300; --ebg:#fdf3dd; --etx:#95650a}
+.est-eg-gestionado{--ic:#0ea5e9; --ebg:#e0f2fe; --etx:#0369a1}
+.est-egreso-inc   {--ic:#e11d48; --ebg:#fdeaef; --etx:#bd1a3f}
 .est-singestion  {--ic:#db2777; --ebg:#fdeaf4; --etx:#be185d}
 .est-vacio       {--ic:#94a3b8; --ebg:#eef2f7; --etx:#64748b}
 /* AUTORIZACIÓN (Notas Operatorias): mismos colores aprobados para sus seis opciones */
@@ -971,6 +980,7 @@ button.link:hover{color:#01407e}
   <nav class="tabs">
     <button data-panel="tq" class="active"><span class="tag">TQ</span> Turnos Quirúrgicos</button>
     <button data-panel="no"><span class="tag">N.O.</span> Notas Operatorias</button>
+    <button data-panel="eg"><span class="tag">EG</span> Egresos</button>
     <button data-panel="listas"><span class="tag">L</span> Listas</button>
     <button data-panel="config"><span class="tag">⚙</span> Configuración</button>
   </nav>
@@ -996,6 +1006,18 @@ button.link:hover{color:#01407e}
       <div class="toolbar" id="tool-no"></div>
       <div class="table-wrap"><table id="table-no"><thead id="head-no"></thead><tbody id="body-no"></tbody></table></div>
       <div class="row-info" id="info-no"></div>
+    </div>
+  </section>
+
+  <!-- ================= EG ================= -->
+  <section class="panel" id="panel-eg">
+    <div class="card">
+      <h2 class="card-title"><span class="badge-item">EG</span> EGRESOS</h2>
+      <p class="card-sub">Sube tu reporte de egresos (Excel/CSV) o captura cada egreso. El encabezado es el mismo de tu formato: EGRESO, DOCUMENTO, PACIENTE, CONSECUTIVO, ENTIDAD, INGRESO, HOSPITALIZACIÓN, DÍAS INGRESO, DÍAS HOSPIT., DIA, HC15, HC19, HC 19 DES, FECHA DE SALIDA, ÁREA DE EGRESO, ESTADO, AUTORIZADOR, OBSERVACIÓN. <b>El mes de la cabecera lo manda la fecha de HOSPITALIZACIÓN.</b></p>
+      <div class="stats" id="stats-eg"></div>
+      <div class="toolbar" id="tool-eg"></div>
+      <div class="table-wrap"><table id="table-eg"><thead id="head-eg"></thead><tbody id="body-eg"></tbody></table></div>
+      <div class="row-info" id="info-eg"></div>
     </div>
   </section>
 
@@ -1275,6 +1297,7 @@ const CATS = [
   {k:'tipo_ingr',    label:'TIPO_INGR'},
   {k:'autorizacion', label:'AUTORIZACION'},
   {k:'estado',       label:'ESTADO (turnos quirúrgicos)'},
+  {k:'estado_eg',    label:'ESTADO (egresos)'},
   {k:'servicio',     label:'SERVICIO ACTUAL'},
   {k:'especialidad', label:'ESPECIALIDAD'},
   {k:'prioridad',    label:'PRIORIDAD'},
@@ -1308,12 +1331,23 @@ const ESTADOS_TQ = [
   'EGRESO',
   'SIN GESTIÓN'
 ];
+/* EGRESOS: el trámite de la ESTANCIA. No es el mismo que el de Turnos — allí se
+   autoriza un procedimiento antes de hacerlo; aquí se cierra una hospitalización,
+   así que lo que se sigue es si el egreso quedó completo o no. Por eso lleva su
+   propia lista (ver la imagen del menú aprobado). */
+const ESTADOS_EG = [
+  'COMPLETO',
+  'PENDIENTE',
+  'GESTIONADO',
+  'EGRESO INCOMPLETO'
+];
 const CAT_DEFAULT = {
   eps:['ASOCIACIÓN INDÍGENA DEL CAUCA AIC EPSI INDÍGENA','NUEVA EMPRESA PROMOTORA DE SALUD S.A - NUEVA EPS','ASMET SALUD EPS SAS'],
   autorizador: AUTORIZADORES.slice(),
   tipo_ingr:['AMBULATORIO','HOSPITALIZADO'],
   autorizacion:['SI','NO','PENDIENTE','VERIFICADO','CX AMBULATORIA','GESTIONADO'],
   estado: ESTADOS_TQ.slice(),
+  estado_eg: ESTADOS_EG.slice(),
   servicio:['URGENCIAS GINECOOBSTETRICIA','ESTANCIA GENERAL QUIRÚRGICA','HEMATOLOGÍA','ESTANCIA GENERAL PEDIÁTRICA','CIRUGÍA ORTOPÉDICA Y TRAUMATOLOGÍA (PEDIATRICA)'],
   especialidad:['GINECOLOGÍA Y OBSTETRICIA','CIRUGÍA ONCOLÓGICA','ORTOPEDIA Y TRAUMATOLOGÍA (PEDIATRICA)','MEDICINA INTERNA'],
   prioridad:['Emergencia','Urgencia','Regular'],
@@ -1325,6 +1359,18 @@ const SCHEMAS = {
   tq: {
     key:'tq', store:'ph_tq_v1', table:'turnos_quirurgicos',
     title:'TQ · TURNOS QUIRÚRGICO', short:'TQ',
+    /* --- rasgos del panel. Antes estaban escritos a mano por todo el código con
+       ternarios del tipo key==='tq' ? … : …, que solo servían para DOS paneles.
+       Ahora cada panel los declara aquí y el código los lee. --- */
+    tramite:'estado',                 /* la columna que se trabaja a mano */
+    hecho:'AUTORIZADO',               /* qué cuenta como «ya resuelto» */
+    etiquetaHecho:'Autorizados',
+    conFisico:true,                   /* lleva el control del turno en físico */
+    conCasillas:true,                 /* y la columna de casillas para marcar en lote */
+    historial:[['estado','ESTADO'], ['autorizador','AUTORIZADOR'],
+               ['num_autorizacion','N° DE AUTORIZACIÓN'], ['observacion','OBSERVACIÓN']],
+    exportTag:'TQ', exportName:'TQ_TURNOS',
+    hojas:['TQ','TURNOS','TURNOSQUIRURGICOS','TURNOSQUIRURGICO'],
     fields:[
       /* tight: la columna ocupa solo lo que necesita · full: el texto se ve completo (sin recortar) */
       {k:'fecha',           label:'FECHA',              type:'date',  req:true, w:108, dup:true, tight:true},
@@ -1360,6 +1406,13 @@ const SCHEMAS = {
   no: {
     key:'no', store:'ph_no_v1', table:'notas_operatorias',
     title:'N.O. · NOTAS OPERATORIAS', short:'N.O.',
+    tramite:'autorizacion',
+    hecho:'SI',
+    etiquetaHecho:'Autorizados',
+    historial:[['autorizacion','AUTORIZACIÓN'], ['num_autorizacion','N° DE AUTORIZACIÓN'],
+               ['ac_evento','CIE10'], ['autorizador','AUTORIZADOR'], ['observacion','OBSERVACIÓN']],
+    exportTag:'N.O.', exportName:'NO_NOTAS',
+    hojas:['NO','NOTAS','NOTASOPERATORIAS','NO.','NOTAOPERATORIA'],
     fields:[
        /* EL ORDEN DE ESTA LISTA ES EL ORDEN DE LAS COLUMNAS.
           Encabezado aprobado (11-10-2026):
@@ -1395,14 +1448,78 @@ const SCHEMAS = {
           abrir el registro y viaja en las exportaciones. */
        {k:'tramitado_por',  label:'TRAMITADO POR',      type:'text', oculto:true},
        {k:'tramitado_en',   label:'TRAMITADO EN',       type:'text', oculto:true}
-    ]
-  }
-};
-const KEYS = ['tq','no'];
+     ]
+   },
+   /* Egresos. Encabezado aprobado (12-10-2026):
+      EGRESO · DOCUMENTO · PACIENTE · CONSECUTIVO · ENTIDAD · INGRESO · HOSPITALIZACIÓN ·
+      DÍAS INGRESO · DÍAS HOSPIT. · DIA · HC15 · HC19 · HC 19 DES · FECHA DE SALIDA ·
+      ÁREA DE EGRESO · ESTADO · AUTORIZADOR · OBSERVACIÓN
+      La fecha que manda para el MES es la HOSPITALIZACIÓN (el archivo la llama FECHA_HOSPI
+      y el campo se guarda como `fecha`). Es la única de las tres fechas del reporte que
+      casi nunca viene vacía: la FECHA DE SALIDA falta en los que todavía están en ESTANCIA
+      (570 de 1.170 en el archivo de octubre), así que no sirve para elegir el mes. */
+   eg: {
+     key:'eg', store:'ph_eg_v1', table:'egresos',
+     title:'EG · EGRESOS', short:'EG',
+     tramite:'estado',
+     hecho:'COMPLETO',
+     etiquetaHecho:'Completos',
+     historial:[['estado','ESTADO'], ['autorizador','AUTORIZADOR'], ['observacion','OBSERVACIÓN']],
+     exportTag:'EG', exportName:'EG_EGRESOS',
+     hojas:['DGDATATABLE','EGRESOS','EGRESO'],
+     fields:[
+       {k:'egreso',       label:'EGRESO',          type:'text',  w:104, tight:true},
+       {k:'id_paciente',  label:'DOCUMENTO',       type:'text',  w:150, dup:true, tight:true},
+       {k:'paciente',     label:'PACIENTE',        type:'text',  req:true, w:230, full:true},
+       {k:'consecutivo',  label:'CONSECUTIVO',     type:'text',  w:122, dup:true, tight:true},
+       {k:'entidad',      label:'ENTIDAD',         type:'text',  w:230, full:true},
+       {k:'ingreso',      label:'INGRESO',         type:'date',  w:112, tight:true},
+       {k:'fecha',        label:'HOSPITALIZACIÓN', type:'date',  req:true, w:134, dup:true, tight:true},
+       {k:'dias_ingreso', label:'DÍAS INGRESO',    lines:['DÍAS','INGRESO'], type:'text', w:92, tight:true},
+       {k:'dias_hospit',  label:'DÍAS HOSPIT.',    lines:['DÍAS','HOSPIT.'], type:'text', w:92, tight:true},
+       {k:'dia',          label:'DIA',             type:'text',  w:74,  tight:true},
+       {k:'hc15',         label:'HC15',            type:'text',  w:92,  tight:true},
+       {k:'hc19',         label:'HC19',            type:'text',  w:78,  tight:true},
+       {k:'hc19_des',     label:'HC 19 DES',       type:'textarea', w:230, full:true},
+       {k:'salida',       label:'FECHA DE SALIDA', lines:['FECHA DE','SALIDA'], type:'date', w:130, tight:true},
+       {k:'area_egreso',  label:'ÁREA DE EGRESO',  type:'textarea', w:240, full:true},
+       /* ESTADO: la misma píldora con menú de Turnos y Notas, pero con las opciones
+          de Egresos (COMPLETO · PENDIENTE · GESTIONADO · EGRESO INCOMPLETO). Se
+          trabaja a mano: la importación nunca la sobrescribe. */
+       {k:'estado',       label:'ESTADO',          type:'select', w:158, cat:'estado_eg', tight:true},
+       {k:'autorizador',  label:'AUTORIZADOR',     type:'select', w:168, cat:'autorizador', tight:true},
+       {k:'observacion',  label:'OBSERVACIÓN',     type:'textarea', span:true, w:220, tight:true},
+       {k:'tramitado_por',label:'TRAMITADO POR',   type:'text',  oculto:true},
+       {k:'tramitado_en', label:'TRAMITADO EN',    type:'text',  oculto:true}
+     ]
+   }
+ };
+const KEYS = ['tq','no','eg'];
+/* De qué panel es una tabla, leyéndolo de su id (table-tq / table-no / table-eg).
+   Antes esto era `table.id === 'table-tq' ? 'tq' : 'no'` repartido por el código: con
+   un tercer panel, cualquier cosa de Egresos habría acabado guardándose en Notas. */
+function keyDeTabla(table){
+  if(!table) return 'tq';
+  const k = String(table.id || '').replace(/^table-/, '');
+  return SCHEMAS[k] ? k : 'tq';
+}
+/* El campo que se trabaja a mano en cada panel (el «trámite») y la lista de opciones
+   que le toca. Antes esto era `key === 'tq' ? 'estado' : 'autorizacion'`: servía para
+   dos paneles, pero Egresos tiene ESTADO con opciones propias. */
+function campoDeTramite(key){ return (SCHEMAS[key] && SCHEMAS[key].tramite) || 'estado'; }
+function campoDef(key, campo){
+  const s = SCHEMAS[key];
+  return s ? (s.fields.find(f => f.k === campo) || null) : null;
+}
+/* La lista de la que salen las opciones de ese campo (estados, autorizadores…). */
+function catDe(key, campo){
+  const f = campoDef(key, campo);
+  return (f && f.cat) || campo;
+}
 
 /* ---------------- estado ---------------- */
 const state = {
-  data: {tq:[], no:[]},
+  data: {tq:[], no:[], eg:[]},
   cats: {},
   cfg: {url:'', key:'', gate:{on:false, email:'', hash:''}},
   ui: {
@@ -1412,7 +1529,8 @@ const state = {
        sel: filas seleccionadas con la casilla, para marcar varias de una vez */
     /* mes: mes del consolidado elegido en la cabecera ('01'..'12' · '' = todos) */
     tq:{q:'', from:'', to:'', aut:'', est:'', mes:'', sel:{}},
-    no:{q:'', from:'', to:'', aut:'', est:'', mes:'', sel:{}}
+    no:{q:'', from:'', to:'', aut:'', est:'', mes:'', sel:{}},
+    eg:{q:'', from:'', to:'', aut:'', est:'', mes:'', sel:{}}
   },
   editing: null,
   imp: null,
@@ -1612,9 +1730,36 @@ const ALIASES = {
     autorizacion:['AUTORIZACION'],
     num_autorizacion:['NDEAUTORIZACION','NUMERODEAUTORIZACION','NOAUTORIZACION','NUMAUTORIZACION','NUMEROAUTORIZACION'],
     observacion:['OBSERVACION','OBSERVACIONES','OBS','NOTA'],
-    autorizador:['AUTORIZADOR','RESPONSABLE','USUARIO']
-  }
-};
+     autorizador:['AUTORIZADOR','RESPONSABLE','USUARIO']
+   },
+   /* Egresos. El reporte se llama DGDATATABLE y estos son sus encabezados. */
+   eg: {
+     egreso:['INFOEGREGO','INFOEGRESO','TIPOEGRESO','EGRESO'],
+     id_paciente:['HC','DOCUMENTO','DOCUMENTOPACIENTE','CEDULA','IDENTIFICACION','NUMERODOCUMENTO'],
+     paciente:['NOMBRE','NOMBREPACIENTE','NOMBRES','PACIENTE','NOMBRECOMPLETO'],
+     consecutivo:['INGRESO','CONSECUTIVO','NINGRESO','NUMEROINGRESO','NUMCONSECUTIVO'],
+     entidad:['ENTIDAD','EPS','ASEGURADORA'],
+     ingreso:['FECHAINGRESO','FECHAINGRESOHOSPITALARIO'],
+     fecha:['FECHAHOSPI','FECHAHOSPITALIZACION','FECHAHOSPIITALIZACION'],
+     dias_ingreso:['DIASESTANCIA','DIASINGRESO','DIASDEESTANCIA','DIASESTADA'],
+     dias_hospit:['DIASHOSPIT','DIASHOSPITALIZACION','DIASHOSPITALIZADO','DIASDEHOSPITALIZACION'],
+     dia:['DIA'],
+     hc15:['SOLICITUDESTURNOSQXFOL','SOLICITUDESTURNOSQX','SOLICITUDTURNOSQXFOL','HC15','FOLIOSOLICITUDES'],
+     hc19:['HC19'],
+     hc19_des:['DESCHC19','HC19DES','DESCRIPCIONHC19','HC19DESC'],
+     salida:['FECHAEGRESO','FECHASALIDA','FECHADESALIDA','FECHAEGRESOHOSPITALARIO'],
+     area_egreso:['AREAEGRESO','AREADESALIDA','SERVICIOEGRESO'],
+     observacion:['OBSERVACION','OBSERVACIONES','OBS','NOTA'],
+     autorizador:['AUTORIZADOR','RESPONSABLE','USUARIO']
+   }
+ };
+/* CABECERAS_IGNORADAS: las columnas del reporte que NO van al programa. En Egresos el
+   reporte trae AREA, CAMA, GESTION_ESTANCIA, MUNICIPIO, AREA_INGRESO, TIPO_INGRESO,
+   INGRESO_POR, PLAN e INGRESADO_POR: ninguna tiene columna en el encabezado aprobado,
+   así que se ignoran al subir el archivo (en la pantalla de emparejamiento salen como
+   «(Ignorar)» y se pueden cambiar a mano si algún día hiciera falta). */
+const CABECERAS_IGNORADAS_EG = ['AREA','CAMA','GESTIONESTANCIA','MUNICIPIO','AREAINGRESO',
+                                'TIPOINGRESO','INGRESOPOR','PLAN','INGRESADOPOR'];
 /* Cabeceras del archivo que NO se emparejan con ningún campo, aunque su nombre
    coincida con la etiqueta de uno del programa. Se comprueban ANTES que nada,
    al principio de autoMap, porque si no el emparejado «directo» las atrapa por
@@ -1623,11 +1768,31 @@ const ALIASES = {
    hospitalizado el paciente: no tiene nada que ver con las autorizaciones. La
    columna ESTADO de Turnos (SI / NO / PENDIENTE / …) se trabaja a mano en la
    tabla, así que la cabecera «estado» del archivo se ignora al subirlo. */
-const CABECERAS_IGNORADAS = { tq:['ESTADO'], no:[] };
+const CABECERAS_IGNORADAS = { tq:['ESTADO'], no:[], eg:CABECERAS_IGNORADAS_EG };
+/* ==========================================================================
+   MAPEO FORZADO · cuando el nombre del archivo choca con la etiqueta de OTRO campo.
+   ==========================================================================
+   En Egresos el reporte llama «INGRESO» al CONSECUTIVO de la hospitalización, pero en
+   el programa la columna INGRESO es la FECHA de ingreso (que en el archivo se llama
+   FECHA_INGRESO). Las dos empiezan por «INGRESO», así que el emparejamiento automático
+   las cruzaría: aquí se fijan a mano y se comprueban ANTES de cualquier otra regla.
+   FECHA_HOSPI va también aquí por ser la fecha que manda el mes: no conviene que
+   dependa de una regla aproximada. */
+const MAPEO_FORZADO = {
+  eg: {
+    'INGRESO':'consecutivo',
+    'FECHAINGRESO':'ingreso',
+    'FECHAHOSPI':'fecha',
+    'FECHAEGRESO':'salida',
+    'DESCHC19':'hc19_des'
+  }
+};
 function autoMap(key, header){
   const s = SCHEMAS[key], hk = keyOf(header);
   if(!hk) return '';
   if((CABECERAS_IGNORADAS[key] || []).indexOf(hk) >= 0) return '';
+  const forzado = (MAPEO_FORZADO[key] || {})[hk];
+  if(forzado) return forzado;
   const direct = s.fields.find(f => keyOf(f.label) === hk || keyOf(f.k) === hk);
   if(direct) return direct.k;
   const al = ALIASES[key] || {};
@@ -1699,9 +1864,7 @@ function openImport(key){
   $('#modal-import').classList.add('open');
 }
 function wantSheetNames(key){
-  return key === 'tq'
-    ? ['TQ','TURNOS','TURNOSQUIRURGICOS','TURNOSQUIRURGICO']
-    : ['NO','NOTAS','NOTASOPERATORIAS','NO.','NOTAOPERATORIA'];
+  return (SCHEMAS[key] && SCHEMAS[key].hojas) || [];
 }
 async function readImportFile(file){
   const imp = state.imp;
@@ -1818,7 +1981,11 @@ async function runImport(){
     mapped.forEach(fk => {
       let v = row[idx[fk]];
       if(v instanceof Date) v = isoFromDate(v);
-      if(fk === 'fecha') v = parseDateAny(v);
+      /* Cualquier columna de tipo fecha se normaliza a aaaa-mm-dd. El reporte de
+         Egresos trae 09/10/26 en unas y fecha con hora en otras (FECHA_EGRESO), y
+         antes solo se convertía el campo «fecha». */
+      const fdef = s.fields.find(f => f.k === fk);
+      if(fk === 'fecha' || (fdef && fdef.type === 'date')) v = parseDateAny(v);
       v = String(v == null ? '' : v).replace(/\s+$/,'').trim();
       if(v) any = true;
       rec[fk] = v;
@@ -1887,16 +2054,16 @@ function listasAoa(){
   return aoa;
 }
 function exportWorkbook(template){
-  const name = (template ? 'PLANTILLA' : 'BASE_TQ_NO') + '_' + isoFromDate(new Date()) + '.xlsx';
+  const name = (template ? 'PLANTILLA' : 'BASE_PROGRAMA') + '_' + isoFromDate(new Date()) + '.xlsx';
   if(!window.XLSX){
     toast('Sin conexión para el generador de Excel: se exportan CSV.','warn');
-    exportCsv('tq'); exportCsv('no'); return;
+    KEYS.forEach(exportCsv); return;
   }
   const wb = XLSX.utils.book_new();
   KEYS.forEach(k => {
     const ws = XLSX.utils.aoa_to_sheet(sheetAoa(k, !template));
     ws['!cols'] = [{wch:6}].concat(SCHEMAS[k].fields.map(f => ({wch: Math.min(42, Math.max(11, Math.round((f.w || 130) / 7)))})));
-    XLSX.utils.book_append_sheet(wb, ws, k === 'tq' ? 'TQ' : 'N.O.');
+    XLSX.utils.book_append_sheet(wb, ws, SCHEMAS[k].exportTag);
   });
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(listasAoa()), 'Listas');
   XLSX.writeFile(wb, name);
@@ -1907,7 +2074,7 @@ function exportCsv(key){
   const cell = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
   const lines = [['N°'].concat(s.fields.map(f => f.label)).map(cell).join(';')];
   rowsOf(key).forEach((r, i) => lines.push([i + 1].concat(s.fields.map(f => f.type === 'date' ? fmtDate(r[f.k]) : (r[f.k] || ''))).map(cell).join(';')));
-  download((key === 'tq' ? 'TQ_TURNOS' : 'NO_NOTAS') + '_' + isoFromDate(new Date()) + '.csv',
+  download(SCHEMAS[key].exportName + '_' + isoFromDate(new Date()) + '.csv',
            new Blob(['\uFEFF' + lines.join('\r\n')], {type:'text/csv;charset=utf-8'}));
   toast('CSV exportado.','ok');
 }
@@ -2268,7 +2435,7 @@ function rowsOf(key){
   const palabras = q ? palabrasBuscadas(u.q) : [];
   const frase = q ? fraseDeLaBusqueda(key, u.q) : '';
   /* En Turnos el trámite se llama ESTADO; en Notas, AUTORIZACIÓN. */
-  const campoEst = key === 'tq' ? 'estado' : 'autorizacion';
+  const campoEst = campoDeTramite(key);
   const list = state.data[key].filter(r => {
     /* solo los del mes elegido en la cabecera */
     if(!fechaEnMes(r.fecha)) return false;
@@ -2415,17 +2582,49 @@ function iconoAutorizacion(v){
   return S + '<circle cx="12" cy="12" r="8.3"/></svg>';
 }
 const SIN_VALOR = { estado:'Sin estado', prioridad:'Sin prioridad', autorizador:'Sin autorizador', autorizacion:'Sin autorización' };
-function claseDe(campo, v){
-  if(campo === 'estado')       return estadoClase(v);
-  if(campo === 'prioridad')    return prioClase(v);
-  if(campo === 'autorizacion') return autorizacionClase(v);
+/* El color y el icono salen de la LISTA de la que bebe el campo (su `cat`), no de su
+   nombre. Hace falta porque Egresos tiene una columna ESTADO con opciones propias
+   (COMPLETO · PENDIENTE · GESTIONADO · EGRESO INCOMPLETO): mirando solo el nombre
+   «estado» se pintarían con los colores de Turnos, que no son los suyos. */
+function claseDe(campo, v, cat){
+  const c = cat || campo;
+  if(c === 'estado_eg')        return estadoEgresoClase(v);
+  if(c === 'estado')           return estadoClase(v);
+  if(c === 'prioridad')        return prioClase(v);
+  if(c === 'autorizacion')     return autorizacionClase(v);
   return ' aut';                     /* autorizador: color fijo */
 }
-function iconoDe(campo, v){
-  if(campo === 'estado')       return iconoEstado(v);
-  if(campo === 'prioridad')    return iconoPrioridad(v);
-  if(campo === 'autorizacion') return iconoAutorizacion(v);
+function iconoDe(campo, v, cat){
+  const c = cat || campo;
+  if(c === 'estado_eg')        return iconoEgresoEstado(v);
+  if(c === 'estado')           return iconoEstado(v);
+  if(c === 'prioridad')        return iconoPrioridad(v);
+  if(c === 'autorizacion')     return iconoAutorizacion(v);
   return iconoPersona();             /* autorizador */
+}
+/* --- EGRESOS ---
+   COMPLETO verde (egreso cerrado), PENDIENTE ámbar, GESTIONADO azul claro (el mismo
+   de Notas), EGRESO INCOMPLETO rojo (falta algo). El GESTIONADO de Turnos es verde
+   azulado, pero se deja como está: aquí se sigue el color de la imagen aprobada. */
+function estadoEgresoClase(v){
+  const t = norm(v);
+  if(!t)                         return ' est-vacio';
+  if(/^COMPLETO$/.test(t))       return ' est-completo';
+  if(/^PENDIENTE$/.test(t))      return ' est-eg-pendiente';
+  if(/GESTIONADO/.test(t))       return ' est-eg-gestionado';
+  if(/EGRESO INCOMPLETO/.test(t))return ' est-egreso-inc';
+  return ' est-vacio';
+}
+function iconoEgresoEstado(v){
+  const t = norm(v);
+  const S = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" ' +
+            'stroke-width="2.9" stroke-linecap="round" stroke-linejoin="round">';
+  if(!t)                          return S + '<path d="M7 12h10"/></svg>';
+  if(/^COMPLETO$/.test(t))        return S + '<path d="M5.4 12.7l4.3 4.3 8.9-9.6"/></svg>';
+  if(/^PENDIENTE$/.test(t))       return S + '<circle cx="12" cy="12" r="8.3"/><path d="M12 7.4V12l3 1.9"/></svg>';
+  if(/GESTIONADO/.test(t))        return S + '<circle cx="12" cy="12" r="3"/><path d="M12 3.7v2.1M12 18.2v2.1M4.7 12h2.1M17.2 12h2.1M6.9 6.9l1.5 1.5M15.6 15.6l1.5 1.5M17.1 6.9l-1.5 1.5M8.4 15.6l-1.5 1.5"/></svg>';
+  if(/EGRESO INCOMPLETO/.test(t)) return S + '<circle cx="12" cy="12" r="8.4"/><path d="M12 7.5V13M12 16.2v.1"/></svg>';
+  return S + '<circle cx="12" cy="12" r="8.3"/></svg>';
 }
 /* Silueta de persona (hereda el color del círculo que la contiene) */
 function iconoPersona(){
@@ -2434,30 +2633,31 @@ function iconoPersona(){
          '<path d="M4.8 20.2a7.2 7.2 0 0 1 14.4 0"/></svg>';
 }
 /* La píldora que se ve en la celda */
-function pillCampo(campo, rec){
+function pillCampo(campo, rec, cat){
   const cur = String(rec[campo] || '').trim();
   const esEstado = (campo === 'estado');
   const esAut    = (campo === 'autorizador');
   /* el autorizador vacío se muestra como «—», como en el diseño */
   const etiqueta = cur ? esc(cur) : (esAut ? '—' : SIN_VALOR[campo]);
-  return '<button type="button" class="pill-cel' + claseDe(campo, cur) + '" data-id="' + esc(rec.id) +
+  return '<button type="button" class="pill-cel' + claseDe(campo, cur, cat) + '" data-id="' + esc(rec.id) +
          '" data-field="' + esc(campo) + '" title="Cambiar ' + esc(campo.toUpperCase()) + '">' +
          '<i class="pill-ic' + (esEstado || esAut || campo === 'autorizacion' ? ' aro' : '') + '">' +
-         iconoDe(campo, cur) + '</i>' +
+         iconoDe(campo, cur, cat) + '</i>' +
          '<span class="pill-tx">' + etiqueta + '</span>' +
          '<svg class="pill-cv" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
          'stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>';
 }
 /* Una fila del menú (una opción) */
-function filaMenuDe(campo, v){
+function filaMenuDe(campo, v, cat){
   const t = String(v || '').trim();
   /* AUTORIZACIÓN se pinta como el ESTADO: opción con su color y su icono, sin fila
      de las «claras» (esas son para el autorizador y la prioridad). */
-  const esEstado = (campo === 'estado' || campo === 'autorizacion');
+  const lista = cat || campo;
+  const esEstado = (lista === 'estado' || lista === 'autorizacion' || lista === 'estado_eg');
   const esAut    = (campo === 'autorizador');
-  return '<button type="button" class="sel-op' + claseDe(campo, t) +
+  return '<button type="button" class="sel-op' + claseDe(campo, t, lista) +
          (esEstado ? '' : (esAut ? ' aut-row' : ' pri-row')) + '" data-v="' + esc(t) + '">' +
-         '<i class="pill-ic' + (esEstado ? ' aro' : (esAut ? ' aro-claro' : '')) + '">' + iconoDe(campo, t) + '</i>' +
+         '<i class="pill-ic' + (esEstado ? ' aro' : (esAut ? ' aro-claro' : '')) + '">' + iconoDe(campo, t, lista) + '</i>' +
          '<span class="pill-tx">' + (t ? esc(t) : SIN_VALOR[campo]) + '</span>' +
          (esAut ? '<svg class="sel-tick" width="15" height="15" viewBox="0 0 24 24" fill="none" ' +
                   'stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">' +
@@ -2466,10 +2666,15 @@ function filaMenuDe(campo, v){
 }
 function selectHtml(f, rec){
   const cur = String(rec[f.k] || '').trim();
-  /* ESTADO y PRIORIDAD van como píldora con menú propio: es la única forma de
-     que las opciones lleven su icono y su color, como el diseño aprobado. */
-  if(f.cat === 'estado' || f.cat === 'prioridad' || f.cat === 'autorizador' ||
-     f.cat === 'autorizacion') return pillCampo(f.k, rec);
+  /* Los campos con lista (ESTADO, PRIORIDAD, AUTORIZADOR, AUTORIZACIÓN…) van como
+     píldora con menú propio: es la única forma de que cada opción lleve su icono y
+     su color, como el diseño aprobado.
+     OJO: antes esto se decidía con una lista de `cat` escrita A MANO
+     (estado · prioridad · autorizador · autorizacion). Al añadir Egresos, cuyo
+     ESTADO usa la lista `estado_eg`, la columna dejó de pintarse como píldora y
+     salía un desplegable feo. Ahora manda el tipo del campo: si tiene lista (cat),
+     es píldora; si no, se deja el desplegable de siempre. */
+  if(f.cat) return pillCampo(f.k, rec, f.cat);
   const opts = ['<option value="">—</option>'].concat(optsFor(f.cat, cur).map(v =>
     '<option' + (norm(v) === norm(cur) ? ' selected' : '') + '>' + esc(v) + '</option>'));
   return '<select class="cell-sel" data-id="' + esc(rec.id) +
@@ -2519,13 +2724,15 @@ function renderStats(key){
      PENDIENTES  = los que faltan (PENDIENTE en los dos).
      No confundir «Pendientes» con lo que falta por subir a la base: eso se ve en
      la barra amarilla de cada fila. */
-  const campo = key === 'tq' ? 'estado' : 'autorizacion';
+  const s = SCHEMAS[key];
+  const campo = campoDeTramite(key);
   const cuenta = (valor) => all.filter(r => norm(r[campo] || '') === norm(valor)).length;
   $('#stats-' + key).innerHTML =
-    tarjeta('s-azul',   ICONO.cama,    all.length,                      'Registros ' + esc(SCHEMAS[key].short)) +
+    tarjeta('s-azul',   ICONO.cama,    all.length,                      'Registros ' + esc(s.short)) +
     tarjeta('s-verde',  ICONO.check,   hoy,                             'De hoy') +
-    tarjeta('s-morado', ICONO.persona, cuenta(key === 'tq' ? 'AUTORIZADO' : 'SI'), 'Autorizados') +
-    (key === 'tq'
+    tarjeta('s-morado', ICONO.persona, cuenta(s.hecho || ''),           s.etiquetaHecho || 'Resueltos') +
+    /* «En físico» solo tiene sentido donde se maneja el turno en papel: Turnos. */
+    (s.conFisico
       ? tarjeta('s-ambar', ICONO.persona, all.filter(r => String(r.fisico || '').trim()).length, 'En físico')
       : '') +
     tarjeta('s-rojo',  ICONO.reloj, cuenta('PENDIENTE'), 'Pendientes');
@@ -2539,7 +2746,7 @@ function renderHead(key){
      Las columnas cortas llevan width:1px (ocupan solo lo necesario) y el ancho sobrante
      se reparte entre las columnas de texto largo; así ninguna columna queda con espacio de más. */
   $('#head-' + key).innerHTML = '<tr>' +
-    (key === 'tq' ? '<th class="tight pick" style="width:34px"><input type="checkbox" class="pick" id="pick-all-' + key +
+    (SCHEMAS[key].conCasillas ? '<th class="tight pick" style="width:34px"><input type="checkbox" class="pick" id="pick-all-' + key +
       '" title="Seleccionar todo lo visible (para marcar en lote)"></th>' : '') +
     '<th class="tight" style="width:52px">N°</th>' +
     campos(key).map(f => {
@@ -2625,8 +2832,8 @@ function claseDeFila(r, i, grupo){
    es lo que numera la columna N° y lo que decide el rayado. */
 function htmlFila(key, r, i, grupo){
   return '<tr class="' + claseDeFila(r, i, grupo) + '" data-id="' + esc(r.id) + '">' +
-    (key === 'tq' ? '<td class="pick" data-label="SEL"><input type="checkbox" class="pick" data-id="' + esc(r.id) + '"' +
-      (state.ui.tq.sel && state.ui.tq.sel[r.id] ? ' checked' : '') + ' title="Seleccionar para marcar en lote"></td>' : '') +
+    (SCHEMAS[key].conCasillas ? '<td class="pick" data-label="SEL"><input type="checkbox" class="pick" data-id="' + esc(r.id) + '"' +
+      (state.ui[key].sel && state.ui[key].sel[r.id] ? ' checked' : '') + ' title="Seleccionar para marcar en lote"></td>' : '') +
     '<td class="num" data-label="N°">' + (i + 1) + '</td>' +
     campos(key).map(f => '<td' + (f.type === 'select' ? ' class="sel-cell"' : '') + ' data-label="' + esc(f.label) + '">' +
       (f.sello ? selloHtml(r) : (f.type === 'select' ? selectHtml(f, r) : cellHtml(f, r[f.k]))) + '</td>').join('') +
@@ -2687,7 +2894,7 @@ function pintarVentanaFilas(key){
   const solapa = v.pintado && ini < v.fin && fin > v.arranque;
   if(v.forzar || !solapa){
     /* ventana nueva de cero (o cambio de datos / salto grande) */
-    const colspan = campos(key).length + 2 + (key === 'tq' ? 1 : 0);
+    const colspan = campos(key).length + 2 + (SCHEMAS[key].conCasillas ? 1 : 0);
     const acc = acumulado(key, n);
     let html = htmlHueco(colspan, acc[ini]);
     for(let i = ini; i < fin; i++) html += htmlFila(key, shown[i], i, v.clases[i]);
@@ -2756,7 +2963,7 @@ function renderBody(key){
          de que los datos se cargan de la base (conexión / volver a entrar). */
     const hayAlguno = state.data[key].length > 0;
     const busqueda = String(u.q || '').trim();
-    const colspan = campos(key).length + 2 + (key === 'tq' ? 1 : 0);
+    const colspan = campos(key).length + 2 + (SCHEMAS[key].conCasillas ? 1 : 0);
     if(busqueda){
       /* El aviso que más falta hacía: quien escribe un nombre y ve la tabla vacía
          piensa que el buscador no sirve. Aquí se le dice, con sus palabras, dónde
@@ -2962,9 +3169,9 @@ function refreshEstFilter(key){
      PENDIENTE, VERIFICADO, CX AMBULATORIA, GESTIONADO). En los dos casos se añaden
      los valores que ya aparezcan en los datos, para no perder ninguno escrito a
      mano, y al final la opción de «sin nada puesto». */
-  const campo = key === 'tq' ? 'estado' : 'autorizacion';
+  const campo = campoDeTramite(key);
   const cur = sel.value;
-  const fijos = optsFor(campo);
+  const fijos = optsFor(catDe(key, campo));
   const extra = Array.from(new Set(state.data[key].map(r => String(r[campo] || '').trim()).filter(Boolean)))
                      .filter(v => !fijos.some(x => norm(x) === norm(v)));
   sel.innerHTML = '<option value="">Todos</option>' +
@@ -3207,11 +3414,7 @@ function collectForm(){
    (cama, paciente…), el historial no se ensucia.
    ========================================================================== */
 function camposHistorial(key){
-  return (key === 'tq')
-    ? [['estado','ESTADO'], ['autorizador','AUTORIZADOR'],
-       ['num_autorizacion','N° DE AUTORIZACIÓN'], ['observacion','OBSERVACIÓN']]
-    : [['autorizacion','AUTORIZACIÓN'], ['num_autorizacion','N° DE AUTORIZACIÓN'],
-       ['ac_evento','CIE10'], ['autorizador','AUTORIZADOR'], ['observacion','OBSERVACIÓN']];
+  return (SCHEMAS[key] && SCHEMAS[key].historial) || [];
 }
 function etiquetaHist(key, campo){
   const p = camposHistorial(key).find(x => x[0] === campo);
@@ -3267,7 +3470,7 @@ function formAbiertoCon(id){
 /* Primera línea de un registro nuevo. */
 function anotarCreacion(key, rec){
   rec.historial = [{campo:'CREACIÓN', antes:null,
-                    despues:((key === 'tq' ? rec.estado : rec.ac_evento) || null),
+                    despues:(rec[campoDeTramite(key)] || null),
                     quien:nombreSesion() || '', cuando:nowISO(), local:true}];
   return rec.historial;
 }
@@ -3330,7 +3533,7 @@ async function deleteRecord(key, id){
 }
 document.addEventListener('click', e => {
   const b = e.target.closest('td.actions button'); if(!b) return;
-  const table = b.closest('table'), key = table.id === 'table-tq' ? 'tq' : 'no';
+  const table = b.closest('table'), key = keyDeTabla(table);
   if(b.classList.contains('edit')) openForm(key, b.dataset.id);
   if(b.classList.contains('del')) deleteRecord(key, b.dataset.id);
 });
@@ -3340,13 +3543,13 @@ document.addEventListener('click', e => {
   if(!s) return;
   const table = s.closest('table');
   if(!table) return;
-  toggleFisico(table.id === 'table-tq' ? 'tq' : 'no', s.dataset.id);
+  toggleFisico(keyDeTabla(table), s.dataset.id);
 });
 document.addEventListener('change', e => {
   const cb = e.target;
   if(!cb || !cb.classList || !cb.classList.contains('pick')) return;
   const table = cb.closest('table');
-  const key = table && table.id === 'table-tq' ? 'tq' : 'no';
+  const key = table ? keyDeTabla(table) : null;
   const u = state.ui[key];
   u.sel = u.sel || {};
   if(cb.id && /^pick-all-/.test(cb.id)){
@@ -3407,7 +3610,7 @@ document.addEventListener('change', async e => {
   if(!sel) return;
   const table = sel.closest('table');
   if(!table) return;
-  const key = table.id === 'table-tq' ? 'tq' : 'no';
+  const key = keyDeTabla(table);
   const rec = state.data[key].find(r => r.id === sel.dataset.id);
   await aplicarCambioTabla(key, rec, sel.dataset.field || 'autorizador', String(sel.value || '').trim());
 });
@@ -3426,12 +3629,12 @@ function abrirMenu(pill){
   const m = $('#sel-menu');
   const table = pill.closest('table');
   if(!m || !table) return;
-  const key = table.id === 'table-tq' ? 'tq' : 'no';
+  const key = keyDeTabla(table);
   const campo = pill.dataset.field || 'estado';
   const rec = state.data[key].find(r => r.id === pill.dataset.id);
   if(!rec) return;
   menuAbierto = { key: key, id: rec.id, campo: campo };
-  const valores = optsFor(campo, rec[campo]).slice();
+  const valores = optsFor(catDe(key, campo), rec[campo]).slice();
   /* El autorizador lleva buscador arriba: con los nombres del área es lo que
      hace cómodo encontrar a alguien. */
   const buscar = (campo === 'autorizador')
@@ -3440,7 +3643,8 @@ function abrirMenu(pill){
       '<path d="M16 16l4.6 4.6"/></svg>' +
       '<input type="text" id="sel-q" placeholder="Buscar autorizador..." autocomplete="off" spellcheck="false"></div>'
     : '';
-  m.innerHTML = buscar + valores.map(v => filaMenuDe(campo, v)).join('') + filaMenuDe(campo, '');
+  const lista = catDe(key, campo);
+  m.innerHTML = buscar + valores.map(v => filaMenuDe(campo, v, lista)).join('') + filaMenuDe(campo, '', lista);
   /* se resalta en la lista el valor que ya tiene, para no perderse */
   const actual = norm(rec[campo]);
   m.querySelectorAll('.sel-op').forEach(o => {
@@ -3569,12 +3773,13 @@ function sqlScript(){
     'create index if not exists idx_' + table + '_fecha on public.' + table + '(fecha desc);\n';
   const proj = state.cfg.url || '(pega aqui la URL del proyecto que uses, p. ej. "Consolidado de Estancias")';
   const mail = 'cada persona con su cédula y su clave';
-  return '-- PROGRAMA HOSPITALARIO · TQ (Turnos Quirúrgicos) y N.O. (Notas Operatorias)\n' +
+  return '-- PROGRAMA HOSPITALARIO · TQ (Turnos Quirúrgicos), N.O. (Notas Operatorias) y EG (Egresos)\n' +
          '-- Proyecto Supabase: ' + proj + '\n' +
          '-- Ejecutar una vez en Supabase -> SQL Editor (con la cuenta del hospital)\n' +
          '-- Las politicas dejan leer/guardar SOLO a usuarios con sesion iniciada (' + mail + ')\n' +
          '-- Si prefieres entrar sin iniciar sesion, abajo hay dos politicas "anon" comentadas.\n\n' +
-         one(SCHEMAS.tq.table, SCHEMAS.tq.fields) + '\n' + one(SCHEMAS.no.table, SCHEMAS.no.fields) +
+          one(SCHEMAS.tq.table, SCHEMAS.tq.fields) + '\n' + one(SCHEMAS.no.table, SCHEMAS.no.fields) + '\n' +
+          one(SCHEMAS.eg.table, SCHEMAS.eg.fields) +
          '\n-- Actualizacion de la tabla TQ al formato del reporte (por si ya la habias creado):\n' +
          ['folio_dgh','id_paciente','cups','cups_descripcion','paciente','servicio_actual','cama','especialidad','prioridad','estado','fisico','tramitado_por','tramitado_en']
             .map(c => 'alter table public.' + SCHEMAS.tq.table + ' add column if not exists ' + c + ' text;')
@@ -3600,12 +3805,30 @@ function saveConfig(){
 }
 async function testConn(silent){
   if(!sb.on()){ if(!silent) toast('Completa la URL del proyecto y la anon key de Supabase.','warn'); return; }
-  try{
-    for(const key of KEYS) await sb.req('/rest/v1/' + SCHEMAS[key].table + '?select=id&limit=1');
-    toast('Conexión correcta con Supabase. Tablas TQ y N.O. disponibles.','ok');
-  }catch(err){
-    toast('Supabase respondió: ' + esc(err.message) + '<br>Revisa URL, anon key y que hayas ejecutado el SQL.', 'bad');
+  /* Se prueban las tablas UNA A UNA: así una tabla que todavía no se ha creado
+     (p. ej. la de Egresos, que es nueva) no hace parecer que la conexión está rota. */
+  const faltan = [], otros = [];
+  let bien = 0;
+  for(const key of KEYS){
+    try{ await sb.req('/rest/v1/' + SCHEMAS[key].table + '?select=id&limit=1'); bien++; }
+    catch(err){
+      const msg = String(err.message || err);
+      if(/no existe|does not exist|42P01|relation .* does not exist/i.test(msg)) faltan.push(SCHEMAS[key].short);
+      else otros.push(SCHEMAS[key].short + ' (' + msg + ')');
+    }
   }
+  if(!faltan.length && !otros.length){
+    toast('Conexión correcta con Supabase. Las ' + KEYS.length + ' tablas (' +
+          KEYS.map(k => SCHEMAS[k].short).join(', ') + ') están disponibles.','ok');
+    return;
+  }
+  if(!bien){
+    toast('Supabase respondió: ' + esc(otros[0] || ('falta crear la tabla de ' + faltan.join(', '))) +
+          '<br>Revisa URL, anon key y que hayas ejecutado el SQL.', 'bad');
+    return;
+  }
+  toast('Conexión correcta, pero ' + (faltan.length > 1 ? 'faltan crear las tablas ' : 'falta crear la tabla ') +
+        esc(faltan.concat(otros).join(', ')) + '. Abre “Ver SQL de las tablas” y ejecútalo en Supabase.', 'warn');
 }
 async function checkTables(){
   const note = $('#cfg-note'); if(!note) return;
