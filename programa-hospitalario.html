@@ -1067,6 +1067,7 @@ button.link:hover{color:#01407e}
       <h2 class="card-title"><span class="badge-item">⚙</span> CONFIGURACIÓN</h2>
       <p class="card-sub">Proyecto conectado: <b id="cfg-proyecto">—</b>. Pega aquí la URL y la anon key del proyecto que quieras usar (por ejemplo, <b>Consolidado de Estancias</b>). Los datos se guardan siempre en el navegador (respaldo local) y se sincronizan con ese proyecto.</p>
       <p class="hint" id="cfg-note" style="margin:-4px 0 12px">Comprobando tablas…</p>
+      <p class="hint" id="cfg-almacen" style="margin:-4px 0 12px">Leyendo el almacén…</p>
       <div class="kv">
         <div>
           <label class="lab">Supabase · URL del proyecto</label>
@@ -1251,10 +1252,51 @@ function isoFromDate(d){
   if(!d || isNaN(d.getTime())) return '';
   return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());
 }
-function fmtDate(v){
+/* Fecha y hora juntas, en formato 'aaaa-mm-dd hh:mm:ss'.
+   Hace falta para la FECHA DE SALIDA de Egresos: el reporte la trae con hora y esa hora
+   hay que conservarla, tanto para mostrarla como para poder ordenar por fecha Y hora.
+   Si el valor no trae hora, se guarda solo la fecha (como cualquier campo de fecha). */
+function parseFechaHora(v){
+  if(v == null) return '';
+  if(v instanceof Date){
+    if(isNaN(v.getTime())) return '';
+    /* El Excel guarda la hora como fracción del día y, al convertirla, se cuela una
+       milésima: 16:20:00 llega como 16:19:59.999 y se quedaba en :59. Se redondea al
+       segundo para devolver la hora que de verdad trae el reporte. */
+    const red = new Date(Math.round(v.getTime() / 1000) * 1000);
+    return isoFromDate(red) + ' ' + pad2(red.getHours()) + ':' + pad2(red.getMinutes()) + ':' + pad2(red.getSeconds());
+  }
+  const s = String(v).trim();
+  if(!s) return '';
+  /* ya viene en aaaa-mm-dd, con hora o sin ella */
+  let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[T ](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+  if(m){
+    const f = m[1] + '-' + pad2(m[2]) + '-' + pad2(m[3]);
+    return m[4] ? f + ' ' + pad2(m[4]) + ':' + pad2(m[5]) + ':' + pad2(m[6] || '0') : f;
+  }
+  /* o en dd/mm/aa, con hora o sin ella */
+  m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})(?:[T ](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+  if(m){
+    let y = +m[3]; if(y < 100) y += 2000;
+    const f = y + '-' + pad2(m[2]) + '-' + pad2(m[1]);
+    return m[4] ? f + ' ' + pad2(m[4]) + ':' + pad2(m[5]) + ':' + pad2(m[6] || '0') : f;
+  }
+  return parseDateAny(s);
+}
+
+/* Fecha para mostrar. Por defecto dd/mm/aaaa. Un campo puede pedir otro formato con
+   `dfmt` (Egresos usa dd/mm/aa, igual que su reporte). Si el valor trae HORA, se añade
+   ('28/02/25 13:33'): así se ve la FECHA DE SALIDA, que en el reporte va con hora. Los
+   segundos no se muestran porque la celda del reporte tampoco los muestra.
+   OJO: esto solo cambia cómo se VE; el valor guardado es el de verdad. */
+function fmtDate(v, formato){
   if(!v) return '';
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v));
-  return m ? m[3] + '/' + m[2] + '/' + m[1] : String(v);
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/.exec(String(v));
+  if(!m) return String(v);
+  const f = (formato === 'dd/mm/aa')
+    ? m[3] + '/' + m[2] + '/' + m[1].slice(2)
+    : m[3] + '/' + m[2] + '/' + m[1];
+  return m[4] ? (f + ' ' + m[4] + ':' + m[5]) : f;
 }
 function parseDateAny(v){
   if(v == null || v === '') return '';
@@ -1472,21 +1514,30 @@ const SCHEMAS = {
      historial:[['estado','ESTADO'], ['autorizador','AUTORIZADOR'], ['observacion','OBSERVACIÓN']],
      exportTag:'EG', exportName:'EG_EGRESOS',
      hojas:['DGDATATABLE','EGRESOS','EGRESO'],
+     /* El reporte de egresos se lee por FECHA DE SALIDA, de la más antigua a la más
+        reciente. Las filas sin fecha de salida van al final. */
+     orden:['salida', 'fecha'],
      fields:[
        {k:'egreso',       label:'EGRESO',          type:'text',  w:104, tight:true},
        {k:'id_paciente',  label:'DOCUMENTO',       type:'text',  w:150, dup:true, tight:true},
        {k:'paciente',     label:'PACIENTE',        type:'text',  req:true, w:230, full:true},
        {k:'consecutivo',  label:'CONSECUTIVO',     type:'text',  w:122, dup:true, tight:true},
        {k:'entidad',      label:'ENTIDAD',         type:'text',  w:230, full:true},
-       {k:'ingreso',      label:'INGRESO',         type:'date',  w:112, tight:true},
-       {k:'fecha',        label:'HOSPITALIZACIÓN', type:'date',  req:true, w:134, dup:true, tight:true},
+       /* dfmt: la fecha se muestra EXACTAMENTE como la trae el reporte ('28/02/25',
+          día/mes/año de dos cifras), no como '28/02/2025'. Solo cambia cómo se ve: el
+          valor guardado es el mismo, y es el que usa el filtro de mes. */
+       {k:'ingreso',      label:'INGRESO',         type:'date',  dfmt:'dd/mm/aa', w:112, tight:true},
+       {k:'fecha',        label:'HOSPITALIZACIÓN', type:'date',  dfmt:'dd/mm/aa', req:true, w:134, dup:true, tight:true},
        {k:'dias_ingreso', label:'DÍAS INGRESO',    lines:['DÍAS','INGRESO'], type:'text', w:92, tight:true},
        {k:'dias_hospit',  label:'DÍAS HOSPIT.',    lines:['DÍAS','HOSPIT.'], type:'text', w:92, tight:true},
        {k:'dia',          label:'DIA',             type:'text',  w:74,  tight:true},
        {k:'hc15',         label:'HC15',            type:'text',  w:92,  tight:true},
        {k:'hc19',         label:'HC19',            type:'text',  w:78,  tight:true},
        {k:'hc19_des',     label:'HC 19 DES',       type:'textarea', w:230, full:true},
-       {k:'salida',       label:'FECHA DE SALIDA', lines:['FECHA DE','SALIDA'], type:'date', w:130, tight:true},
+       /* FECHA DE SALIDA: el reporte la trae con HORA (la celda de Excel tiene formato
+          'm/d/yy h:mm'), así que se guarda entera y se muestra '28/02/25 13:33'. De ahí
+          que sea de tipo datetime y no date. */
+       {k:'salida',       label:'FECHA DE SALIDA', lines:['FECHA DE','SALIDA'], type:'datetime', dfmt:'dd/mm/aa', w:158, tight:true},
        {k:'area_egreso',  label:'ÁREA DE EGRESO',  type:'textarea', w:240, full:true},
        /* ESTADO: la misma píldora con menú de Turnos y Notas, pero con las opciones
           de Egresos (COMPLETO · PENDIENTE · GESTIONADO · EGRESO INCOMPLETO). Se
@@ -1544,8 +1595,140 @@ const state = {
 
 /* ---------------- almacenamiento local ---------------- */
 function lsGet(k, def){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; }catch(e){ return def; } }
-function lsSet(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); return true; }catch(e){ toast('No se pudo guardar en el navegador.','bad'); return false; } }
-function saveData(key){ lsSet(SCHEMAS[key].store, state.data[key]); }
+function lsSet(k, v, silencioso){
+  try{ localStorage.setItem(k, JSON.stringify(v)); return true; }
+  catch(e){ if(!silencioso) avisoNoGuarda(); return false; }
+}
+
+/* ==========================================================================
+   DÓNDE SE GUARDAN LOS TRES REPORTES
+   ==========================================================================
+   localStorage admite unos 5 MB por página y el programa guarda tres reportes que
+   crecen mes a mes. Medido con los archivos reales: Notas (2.081 registros) 945 KB,
+   Egresos (600) 310 KB, y un mes de Turnos ronda los 900 KB. Con unos cuantos meses
+   acumulados se pasa del cupo y el programa decía «No se pudo guardar en el
+   navegador»: a partir de ahí, todo lo que se editaba se perdía al cerrar sin más
+   explicación.
+
+   Ahora los tres reportes se guardan en IndexedDB, que el navegador llena con un
+   porcentaje del disco libre (cientos de MB, no 5). La configuración, las listas y
+   la sesión siguen en localStorage: son diminutas y se leen al instante.
+   Si el navegador no trae IndexedDB, todo sigue funcionando como antes.
+
+   Ventaja de paso: IndexedDB guarda el objeto tal cual (no hay que convertirlo a
+   texto), así que guardar es más rápido que antes.
+   ========================================================================== */
+const BD_NOMBRE = 'programa-hospitalario-datos', BD_ALMACEN = 'reportes';
+let _bd = null, _bdIntentada = false;
+function abrirBD(){
+  return new Promise(res => {
+    if(_bdIntentada) return res(_bd);
+    _bdIntentada = true;
+    let idb = null;
+    try{ idb = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB; }catch(e){}
+    if(!idb) return res(null);
+    let pedido;
+    try{ pedido = idb.open(BD_NOMBRE, 1); }catch(e){ return res(null); }
+    pedido.onupgradeneeded = () => {
+      const d = pedido.result;
+      if(!d.objectStoreNames.contains(BD_ALMACEN)) d.createObjectStore(BD_ALMACEN);
+    };
+    pedido.onsuccess = () => { _bd = pedido.result; res(_bd); };
+    pedido.onerror   = () => res(null);
+    pedido.onblocked = () => res(null);
+  });
+}
+function bdLeer(clave){
+  return new Promise(res => {
+    if(!_bd) return res(undefined);
+    try{
+      const p = _bd.transaction(BD_ALMACEN, 'readonly').objectStore(BD_ALMACEN).get(clave);
+      p.onsuccess = () => res(p.result);
+      p.onerror   = () => res(undefined);
+    }catch(e){ res(undefined); }
+  });
+}
+function bdEscribir(clave, valor){
+  return new Promise(res => {
+    if(!_bd) return res(false);
+    try{
+      const tx = _bd.transaction(BD_ALMACEN, 'readwrite');
+      tx.objectStore(BD_ALMACEN).put(valor, clave);
+      tx.oncomplete = () => res(true);
+      tx.onerror    = () => res(false);
+      tx.onabort    = () => res(false);
+    }catch(e){ res(false); }
+  });
+}
+function bdBorrar(clave){
+  return new Promise(res => {
+    if(!_bd) return res(false);
+    try{
+      const tx = _bd.transaction(BD_ALMACEN, 'readwrite');
+      tx.objectStore(BD_ALMACEN).delete(clave);
+      tx.oncomplete = () => res(true);
+      tx.onerror    = () => res(false);
+    }catch(e){ res(false); }
+  });
+}
+/* ¿el navegador tiene el almacenamiento bloqueado? (modo incógnito, cookies
+   bloqueadas, políticas del equipo…) Se distingue del «no cabe» con una escritura
+   minúscula: si ni eso entra, el problema no es el tamaño. */
+function almacenBloqueado(){
+  try{ localStorage.setItem('__ph_prueba__', '1'); localStorage.removeItem('__ph_prueba__'); return false; }
+  catch(e){ return true; }
+}
+/* Los tamaños se cuentan en CARACTERES, que es como los cuenta el navegador
+   (5 MB son unos 5.000 KB de caracteres): así el número que se enseña se puede
+   comparar con el cupo sin confundirse. */
+function kbDe(k){ try{ return Math.round(JSON.stringify(state.data[k] || []).length / 1024); }catch(e){ return 0; } }
+function avisoNoGuarda(){
+  const total = KEYS.reduce((a, k) => a + kbDe(k), 0);
+  if(almacenBloqueado()){
+    toast('<b>No se pudo guardar: el navegador tiene bloqueado el almacenamiento de esta página.</b><br>' +
+          'Suele pasar en <b>modo incógnito</b> o con las <b>cookies bloqueadas</b>. ' +
+          'Abre el programa en una ventana normal y, si tienes datos dentro, expórtalos a Excel antes de cerrar.', 'bad');
+    return;
+  }
+  toast('<b>No se pudo guardar: el navegador se quedó sin espacio.</b><br>' +
+        'Los tres reportes ocupan <b>' + total.toLocaleString('es-CO') + ' KB</b> y este navegador solo ' +
+        'admite unos 5.000 KB. ' +
+        'Lo que edites ahora <b>no quedará guardado</b> al cerrar. ' +
+        'Usa <b>Exportar</b> para llevarte un respaldo, borra los meses ya cerrados y vuelve a subir solo lo que estés trabajando.', 'bad');
+}
+/* Guarda el reporte de un panel donde toque. */
+function saveData(key){ guardarDatos(SCHEMAS[key].store, state.data[key]); }
+async function guardarDatos(store, datos){
+  if(await bdEscribir(store, datos)) return true;
+  if(lsSet(store, datos, true)) return true;      /* sin IndexedDB: como antes */
+  avisoNoGuarda();
+  return false;
+}
+/* Carga los tres reportes: primero IndexedDB y, si venían del programa anterior,
+   se pasan allí (sin borrar el original hasta que la copia esté hecha). */
+async function cargarDatos(){
+  await abrirBD();
+  for(const k of KEYS){
+    const store = SCHEMAS[k].store;
+    let filas = await bdLeer(store);
+    if(filas === undefined){
+      const viejas = lsGet(store, null);          /* migración desde localStorage */
+      if(Array.isArray(viejas) && viejas.length){
+        if(await bdEscribir(store, viejas)){ try{ localStorage.removeItem(store); }catch(e){} }
+        filas = viejas;
+      } else filas = [];
+    }
+    state.data[k] = Array.isArray(filas) ? filas : [];
+  }
+}
+/* Dónde están los datos y cuánto ocupan (se ve en Configuración). */
+function infoAlmacen(){
+  const partes = KEYS.map(k => SCHEMAS[k].short + ' ' + (state.data[k] || []).length +
+    ' (' + kbDe(k).toLocaleString('es-CO') + ' KB)');
+  return { motor: _bd ? 'IndexedDB' : 'localStorage (máximo 5.000 KB)',
+           detalle: partes.join(' · '),
+           total: KEYS.reduce((a, k) => a + kbDe(k), 0) };
+}
 function saveCats(){ lsSet('ph_cat_v1', state.cats); }
 function saveCfg(){ lsSet('ph_cfg_v1', state.cfg); }
 
@@ -1580,10 +1763,8 @@ function loadAll(){
   /* el desplegable de AUTORIZADOR siempre trae la lista fija + lo que haya en Listas */
   state.cats.autorizador = Array.from(new Set((state.cats.autorizador || []).concat(AUTORIZADORES)));
   state.cats.estado = Array.from(new Set((state.cats.estado || []).concat(ESTADOS_TQ)));
-  KEYS.forEach(k => {
-    const rows = lsGet(SCHEMAS[k].store, []);
-    state.data[k] = Array.isArray(rows) ? rows : [];
-  });
+  /* Los tres reportes NO se leen aquí: los trae cargarDatos() desde IndexedDB (es
+     asíncrono, así que se espera al principio de init antes de pintar). */
 }
 
 /* ---------------- Supabase (REST / PostgREST) ---------------- */
@@ -2063,12 +2244,18 @@ async function runImport(){
     const rec = {}; let any = false;
     mapped.forEach(fk => {
       let v = row[idx[fk]];
-      if(v instanceof Date) v = isoFromDate(v);
-      /* Cualquier columna de tipo fecha se normaliza a aaaa-mm-dd. El reporte de
-         Egresos trae 09/10/26 en unas y fecha con hora en otras (FECHA_EGRESO), y
-         antes solo se convertía el campo «fecha». */
       const fdef = s.fields.find(f => f.k === fk);
-      if(fk === 'fecha' || (fdef && fdef.type === 'date')) v = parseDateAny(v);
+      /* Cualquier columna de fecha se normaliza. El reporte de Egresos trae 09/10/26 en
+         unas columnas y fecha CON HORA en la de salida, y antes solo se convertía el
+         campo «fecha».
+         OJO con el orden: si primero se pasara la fecha a aaaa-mm-dd, la hora se
+         perdería antes de que el campo de fecha y hora pudiera verla. Por eso el caso
+         «datetime» va PRIMERO y recibe el valor original. */
+      if(fdef && fdef.type === 'datetime') v = parseFechaHora(v);
+      else {
+        if(v instanceof Date) v = isoFromDate(v);
+        if(fk === 'fecha' || (fdef && fdef.type === 'date')) v = parseDateAny(v);
+      }
       v = String(v == null ? '' : v).replace(/\s+$/,'').trim();
       if(v) any = true;
       rec[fk] = v;
@@ -2145,7 +2332,7 @@ function download(name, blob){
 function sheetAoa(key, withRows){
   const s = SCHEMAS[key];
   const aoa = [['N°'].concat(s.fields.map(f => f.label))];
-  if(withRows) rowsOf(key).forEach((r, i) => aoa.push([i + 1].concat(s.fields.map(f => f.type === 'date' ? fmtDate(r[f.k]) : (r[f.k] || '')))));
+  if(withRows) rowsOf(key).forEach((r, i) => aoa.push([i + 1].concat(s.fields.map(f => (f.type === 'date' || f.type === 'datetime') ? fmtDate(r[f.k], f.dfmt) : (r[f.k] || '')))));
   return aoa;
 }
 function listasAoa(){
@@ -2173,7 +2360,7 @@ function exportCsv(key){
   const s = SCHEMAS[key];
   const cell = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
   const lines = [['N°'].concat(s.fields.map(f => f.label)).map(cell).join(';')];
-  rowsOf(key).forEach((r, i) => lines.push([i + 1].concat(s.fields.map(f => f.type === 'date' ? fmtDate(r[f.k]) : (r[f.k] || ''))).map(cell).join(';')));
+  rowsOf(key).forEach((r, i) => lines.push([i + 1].concat(s.fields.map(f => (f.type === 'date' || f.type === 'datetime') ? fmtDate(r[f.k], f.dfmt) : (r[f.k] || ''))).map(cell).join(';')));
   download(SCHEMAS[key].exportName + '_' + isoFromDate(new Date()) + '.csv',
            new Blob(['\uFEFF' + lines.join('\r\n')], {type:'text/csv;charset=utf-8'}));
   toast('CSV exportado.','ok');
@@ -2554,17 +2741,30 @@ function rowsOf(key){
     if(!palabras.length) return true;
     return coincideConLaBusqueda(r, s.fields, palabras, frase);
   });
-  /* Orden: de MENOR a MAYOR por fecha y hora (el más antiguo primero). */
+  /* ORDEN. Lo declara cada panel en su esquema (`orden`): Turnos y Notas ordenan por
+     fecha y hora, el más antiguo primero; Egresos ordena por FECHA DE SALIDA de menor
+     a mayor, que es como se lee ese reporte. Las fechas vienen como 'YYYY-MM-DD', así
+     que el orden alfabético ya es cronológico, y las filas SIN esa fecha van al final
+     (son las incompletas: mejor verlas juntas al final que salpicadas). */
+  const claves = s.orden || ['fecha', 'hora'];
   list.sort((a, b) => {
-    /* 1) FECHA. Viene como 'YYYY-MM-DD', así que el orden alfabético ya es cronológico. */
-    const f = String(a.fecha || '').localeCompare(String(b.fecha || ''));
-    if(f) return f;
-    /* 2) HORA dentro del mismo día, comparada como tiempo real (no como texto). */
-    const ha = horaSeg(a.hora), hb = horaSeg(b.hora);
-    if(ha === null && hb !== null) return 1;      /* sin hora válida: al final del día */
-    if(hb === null && ha !== null) return -1;
-    if(ha !== null && hb !== null && ha !== hb) return ha - hb;
-    /* 3) Desempates: hora como texto y, por último, el orden de creación. */
+    for(const c of claves){
+      if(c === 'hora'){
+        /* la hora se compara como tiempo real, no como texto */
+        const ha = horaSeg(a.hora), hb = horaSeg(b.hora);
+        if(ha === null && hb !== null) return 1;    /* sin hora válida: al final */
+        if(hb === null && ha !== null) return -1;
+        if(ha !== null && hb !== null && ha !== hb) return ha - hb;
+        continue;
+      }
+      const va = String(a[c] == null ? '' : a[c]).trim();
+      const vb = String(b[c] == null ? '' : b[c]).trim();
+      if(!va && vb) return 1;
+      if(va && !vb) return -1;
+      const r = va.localeCompare(vb);
+      if(r) return r;
+    }
+    /* desempates finales: la hora como texto y, por último, el orden de creación */
     const ht = String(a.hora || '').localeCompare(String(b.hora || ''));
     if(ht) return ht;
     return String(a.created_at || '').localeCompare(String(b.created_at || ''));
@@ -2781,8 +2981,8 @@ function selectHtml(f, rec){
          '" data-field="' + esc(f.k) + '" title="Selecciona ' + esc(f.label) + '">' + opts.join('') + '</select>';
 }
 function cellHtml(f, v){
-  if(f.type === 'date'){
-    const d = fmtDate(v);
+  if(f.type === 'date' || f.type === 'datetime'){
+    const d = fmtDate(v, f.dfmt);
     return d ? '<span class="clamp" title="' + esc(d) + '">' + esc(d) + '</span>' : '<span style="color:#8aa6c0">—</span>';
   }
   const raw = String(v == null ? '' : v);
@@ -3444,6 +3644,9 @@ function openForm(key, id){
        En el servidor, para un autorizador normal, el nombre se fija igualmente al
        suyo; quien puede asignarlo a otra persona es el Administrador. */
     if(f.k === 'autorizador' && !String(val == null ? '' : val).trim()) val = nombreSesion();
+    /* el campo de fecha y hora se edita con su propio control: el valor guardado es
+       'aaaa-mm-dd hh:mm:ss' y el control espera 'aaaa-mm-ddThh:mm' */
+    if(f.type === 'datetime' && val) val = String(val).replace(' ', 'T').slice(0, 16);
     const esSelect = f.type === 'select';
     const opts = esSelect
       ? optsFor(f.cat, val)
@@ -3464,7 +3667,8 @@ function openForm(key, id){
       input = '<select data-f="' + f.k + '"><option value="">— Selecciona —</option>' +
         opts.map(o => '<option' + (norm(o) === norm(val) ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select>';
     } else {
-      input = '<input type="' + (f.type === 'date' ? 'date' : 'text') + '" data-f="' + f.k + '" value="' + esc(val) + '" placeholder="' + esc(f.ph || '') + '"' + la + ' />';
+      const tipo = f.type === 'date' ? 'date' : (f.type === 'datetime' ? 'datetime-local' : 'text');
+      input = '<input type="' + tipo + '" data-f="' + f.k + '" value="' + esc(val) + '" placeholder="' + esc(f.ph || '') + '"' + la + ' />';
     }
     return '<div class="' + (f.span ? 'full' : '') + '">' + dl +
       '<label class="lab">' + esc(f.label) + (f.req ? ' <span class="req">*</span>' : '') + '</label>' + input + extra + '</div>';
@@ -3499,7 +3703,8 @@ function collectForm(){
     const el = $('#form-grid [data-f="' + f.k + '"]');
     let v = el ? String(el.value || '').trim() : '';
     el && el.classList.remove('bad');
-    if(f.type === 'date' && v) v = parseDateAny(v);
+    if(f.type === 'datetime' && v) v = parseFechaHora(String(v).replace('T', ' '));
+    else if(f.type === 'date' && v) v = parseDateAny(v);
     if(f.req && !v){ missing.push(f.label); el && el.classList.add('bad'); }
     out[f.k] = v;
   });
@@ -4045,7 +4250,14 @@ async function syncAll(silent){
 }
 function wipeLocal(){
   if(!confirm('¿Borrar TODOS los registros guardados en este navegador?\n\nNo borra lo que esté en Supabase. Si hay registros sin sincronizar, se perderán.')) return;
-  KEYS.forEach(k => { state.data[k] = []; saveData(k); renderPanel(k); });
+  /* Se vacían los dos almacenes: el de ahora (IndexedDB) y el de antes, por si
+     quedara algo de una versión anterior del programa. */
+  KEYS.forEach(k => {
+    state.data[k] = [];
+    bdBorrar(SCHEMAS[k].store);
+    try{ localStorage.removeItem(SCHEMAS[k].store); }catch(e){}
+    renderPanel(k);
+  });
   toast('Datos locales borrados.', 'ok');
 }
 
@@ -4424,6 +4636,7 @@ async function gateEnter(){
    NAVEGACIÓN + ARRANQUE
    ========================================================================== */
 function openPanel(p){
+  if(p === 'config') pinteAlmacen();
   $$('nav.tabs button').forEach(b => b.classList.toggle('active', b.dataset.panel === p));
   $$('section.panel').forEach(s => s.classList.toggle('visible', s.id === 'panel-' + p));
   window.scrollTo({top:0, behavior:'smooth'});
@@ -4518,8 +4731,26 @@ function initHBars(){
   programarHBars();
 }
 
-function init(){
+async function init(){
   loadAll();
+  /* Los reportes se traen de IndexedDB: hay que esperarlos ANTES de pintar, o las
+     tablas saldrían vacías un instante y el buscador de la cabecera no encontraría
+     nada. Si IndexedDB fallara, se cae al almacén de siempre sin cambiar nada. */
+  let traidos = false;
+  try{
+    /* con tope de tiempo: si IndexedDB no contesta (raro), el programa no se queda
+       colgado en blanco; se sigue con el almacén de siempre */
+    await Promise.race([
+      cargarDatos().then(() => { traidos = true; }),
+      new Promise(r => setTimeout(r, 5000))
+    ]);
+  }catch(e){}
+  if(!traidos){
+    KEYS.forEach(k => {
+      if(!state.data[k] || !state.data[k].length)
+        state.data[k] = lsGet(SCHEMAS[k].store, []) || [];
+    });
+  }
   KEYS.forEach(k => { buildToolbar(k); enganchaVentana(k); renderPanel(k); });
   initHBars();
   /* El navegador rellena el buscador sin avisar (ni un solo evento), así que se
@@ -4543,6 +4774,7 @@ function init(){
   $('#gate-lista').innerHTML = AUTORIZADORES.map(n => esc(n)).join(' · ');
   /* la primera activación ya no ofrece elegir nombre: el servidor decide
      el perfil y el rol a partir del código de activación */
+  pinteAlmacen();
   $('#cfg-sql-pre').textContent = sqlScript();
   $('#cfg-proyecto').textContent = sb.on() ? state.cfg.url : 'sin configurar (pega la URL y la anon key)';
   gateState(); setStatus();
@@ -4651,6 +4883,16 @@ function init(){
       }
     })();
   }
+}
+/* El estado del almacén se repinta cada vez que se abre Configuración. */
+function pinteAlmacen(){
+  const el = $('#cfg-almacen');
+  if(!el) return;
+  const i = infoAlmacen();
+  const ojo = !_bd
+    ? ' <b>Este navegador no tiene IndexedDB</b>, así que se sigue usando el almacén de 5 MB: exporta y borra meses antiguos para no llenarlo.'
+    : '';
+  el.innerHTML = 'Datos guardados en <b>' + esc(i.motor) + '</b>: ' + esc(i.detalle) + '.' + ojo;
 }
 init();
 </script>
