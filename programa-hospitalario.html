@@ -1789,11 +1789,21 @@ const sb = {
       if(r.status === 401 && state.token){
         /* el pase dura 1 hora: primero se intenta renovar sin molestar a nadie */
         if(!o._renovado && await sbRefresh()) return this.req(p, Object.assign({}, o, {_renovado:true}));
-        state.token = null;
-        try{ localStorage.removeItem('ph_session'); }catch(e){}
-        pintarUsuario();
-        showGate('La sesión venció. Vuelve a entrar con tu cédula y tu clave.');
-        throw new Error('Sesión vencida. Vuelve a entrar.');
+        /* Un 401 NO siempre significa que el pase caducó: también sale si la tabla no
+           tiene permisos o si la clave está mal. Antes se cerraba la sesión SIEMPRE, y
+           eso dejaba al usuario fuera sin motivo y, de paso, sin nombre con el que
+           firmar los registros (el AUTORIZADOR se quedaba en blanco). Ahora solo se
+           cierra si de verdad caducó. */
+        const ses = sesion() || {};
+        const caduco = !ses.rexp || Number(ses.rexp) <= Date.now();
+        if(caduco){
+          state.token = null;
+          try{ localStorage.removeItem('ph_session'); }catch(e){}
+          pintarUsuario();
+          showGate('La sesión venció. Vuelve a entrar con tu cédula y tu clave.');
+          throw new Error('Sesión vencida. Vuelve a entrar.');
+        }
+        throw new Error('El servidor rechazó la operación (revisa los permisos de la tabla). Tu sesión sigue abierta.');
       }
       if(/All object keys must match/i.test(String(txt))){
         throw new Error('Los registros a enviar no tenían las mismas columnas. Actualiza la página (Ctrl+F5) y sincroniza otra vez.');
@@ -3891,9 +3901,14 @@ async function aplicarCambioTabla(key, rec, campo, nuevo){
      Va ANTES de anotarHistorial para que la firma quede también en el historial, y
      solo cuando el valor elegido NO está vacío: dejar la casilla en blanco no firma
      nada. */
+  let sinFirmar = false;
   if(String(nuevo || '').trim() && (campo === 'autorizacion' || campo === 'estado')){
     const yo = nombreSesion();
     if(yo) rec.autorizador = yo;
+    /* Si la sesión no tiene nombre no se puede firmar. Antes se dejaba en blanco SIN
+       decir nada, y desde fuera parecía que «no se pone el nombre del autorizador».
+       Ahora se avisa y se explica cómo ponerlo a mano. */
+    else sinFirmar = true;
   }
   anotarHistorial(key, rec, antes);                        /* deja la línea del cambio */
   rec.updated_at = nowISO();
@@ -3902,6 +3917,10 @@ async function aplicarCambioTabla(key, rec, campo, nuevo){
   renderStats(key); renderBody(key); refreshAutFilter(key);
   toast(etiquetaHist(key, campo) + ' de ' + esc(rec.paciente || 'el registro') + ': ' +
         (nuevo ? '<b>' + esc(nuevo) + '</b>' : 'vacío'), 'ok');
+  if(sinFirmar){
+    toast('El registro quedó <b>sin firmar</b>: tu sesión no tiene nombre de usuario. ' +
+          'Ponlo a mano con la píldora de <b>AUTORIZADOR</b>, o sal y vuelve a entrar.', 'warn');
+  }
   try{
     await sb.upsert(SCHEMAS[key].table, [rec]);
     rec._sync = 'synced'; saveData(key); renderBody(key); setStatus();
@@ -4064,12 +4083,16 @@ function setStatus(){
   $('#chip-status').title = on ? ('Supabase: ' + state.cfg.url) : 'Los datos se guardan en este navegador';
 }
 function sqlScript(){
+  /* El tipo de cada columna. OJO: la FECHA DE SALIDA de Egresos guarda fecha Y HORA,
+     así que su columna tiene que ser timestamptz; si fuera date, Supabase rechazaría
+     el guardado ('invalid input syntax for type date') y Egresos nunca sincronizaría. */
+  const tipoSQL = f => f.type === 'datetime' ? 'timestamptz' : (f.type === 'date' ? 'date' : 'text');
   const one = (table, fields) =>
     'create table if not exists public.' + table + ' (\n' +
     '  id text primary key,\n' +
     '  created_at timestamptz default now(),\n' +
     '  updated_at timestamptz default now(),\n' +
-    fields.map(f => '  ' + f.k + ' ' + (f.type === 'date' ? 'date' : 'text')).join(',\n') +
+    fields.map(f => '  ' + f.k + ' ' + tipoSQL(f)).join(',\n') +
     '\n);\n\n' +
     'alter table public.' + table + ' enable row level security;\n' +
     'drop policy if exists "acceso_' + table + '" on public.' + table + ';\n' +
@@ -4085,6 +4108,10 @@ function sqlScript(){
          '-- Si prefieres entrar sin iniciar sesion, abajo hay dos politicas "anon" comentadas.\n\n' +
           one(SCHEMAS.tq.table, SCHEMAS.tq.fields) + '\n' + one(SCHEMAS.no.table, SCHEMAS.no.fields) + '\n' +
           one(SCHEMAS.eg.table, SCHEMAS.eg.fields) +
+         '\n-- EGRESOS · si ya creaste la tabla antes de que la fecha de salida llevara hora,\n' +
+         '-- el campo «salida» quedo como date y hay que pasarlo a timestamptz. Ejecuta esta\n' +
+         '-- linea UNA vez (si la tabla es nueva, no hace falta):\n' +
+         'alter table public.egresos alter column salida type timestamptz using salida::timestamptz;\n' +
          '\n-- Actualizacion de la tabla TQ al formato del reporte (por si ya la habias creado):\n' +
          ['folio_dgh','id_paciente','cups','cups_descripcion','paciente','servicio_actual','cama','especialidad','prioridad','estado','fisico','tramitado_por','tramitado_en']
             .map(c => 'alter table public.' + SCHEMAS.tq.table + ' add column if not exists ' + c + ' text;')
@@ -4206,9 +4233,19 @@ async function syncAll(silent){
   }
   try{
     let pushed = 0, pulled = 0;
+    /* Cada panel va por su cuenta: si uno falla (por ejemplo, la tabla de Egresos aún
+       no existe o no admite la hora), los demás tienen que poder sincronizarse igual.
+       Antes una sola tabla con problemas abortaba TODA la sincronización y dejaba a los
+       tres paneles con la barra amarilla. */
+    const fallos = [];
     for(const k of KEYS){
       const pend = state.data[k].filter(isPending);
-      if(pend.length){ await sb.upsert(SCHEMAS[k].table, pend); pend.forEach(r => r._sync = 'synced'); pushed += pend.length; saveData(k); }
+      if(!pend.length) continue;
+      try{
+        await sb.upsert(SCHEMAS[k].table, pend);
+        pend.forEach(r => r._sync = 'synced');
+        pushed += pend.length; saveData(k);
+      }catch(err){ fallos.push(SCHEMAS[k].short + ': ' + err.message); }
     }
     /* De fondo se piden SOLO los cambios posteriores a la última vez (el «corte»).
        Es lo que evita bajarse los 533 registros cada 3 minutos: en condiciones
@@ -4218,7 +4255,7 @@ async function syncAll(silent){
     for(const k of KEYS){
       let remote = [];
       try{ remote = await sb.pull(SCHEMAS[k].table, desde); }
-      catch(err){ throw new Error(SCHEMAS[k].short + ': ' + err.message); }
+      catch(err){ fallos.push(SCHEMAS[k].short + ': ' + err.message); continue; }
       const byId = {};
       state.data[k].forEach(r => { byId[r.id] = r; });
       let toco = false;
@@ -4242,6 +4279,13 @@ async function syncAll(silent){
     setStatus();
     /* De fondo: sin avisos. A quien está trabajando no hay que molestarlo con
        mensajes de algo que ya ocurre solo. Lo que falle, a la consola. */
+    setStatus();
+    if(fallos.length){
+      if(silent){ if(window.console) console.warn('Sincronización, paneles con problemas:', fallos.join(' | ')); }
+      else toast('Sincronización: ' + pushed + ' enviado(s), ' + pulled + ' recibido(s).<br>' +
+                 '<b>Con problemas:</b> ' + esc(fallos.slice(0, 2).join(' | ')), 'warn');
+      return;
+    }
     if(!silent) toast('Sincronización: ' + pushed + ' enviado(s), ' + pulled + ' recibido(s)/actualizado(s).','ok');
   }catch(err){
     if(silent){ if(window.console) console.warn('Sincronización de fondo:', err.message); }
