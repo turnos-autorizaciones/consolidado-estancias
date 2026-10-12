@@ -578,6 +578,11 @@ label.lab{display:block; font-size:11.5px; font-weight:700; color:var(--ink-soft
 label.lab .req{color:var(--pink-deep)}
 .modal footer{padding:13px 18px; border-top:1px solid var(--line); display:flex; gap:9px; justify-content:flex-end; flex-wrap:wrap; background:#f6fbff}
 .hint{font-size:12px; color:var(--ink-soft)}
+/* Aviso, ANTES de confirmar, de cuántas filas del archivo se van a subir y cuántas
+   se quedan fuera por el filtro (en Egresos solo entran SALIDA y FACTURADO). */
+.imp-filtro{margin:0 0 10px; padding:9px 12px; border-radius:10px; font-size:12.5px; line-height:1.45;
+  background:#eef6fd; border:1px solid #cfe2f4; color:#1b5286}
+.imp-filtro.malo{background:#fdeaef; border-color:#f6c9d5; color:#9b1c38}
 .err{color:var(--danger); font-size:12px; font-weight:700; margin-top:5px; overflow-wrap:break-word}
 input.bad,select.bad,textarea.bad{border-color:#e08585; box-shadow:0 0 0 4px rgba(224,133,133,.16)}
 
@@ -1813,6 +1818,55 @@ function dupKey(key, rec){
    Si hay que cambiarlos de nuevo, se hace en la tabla o en el formulario. */
 const CAMPOS_MANUALES = ['autorizador', 'estado', 'autorizacion', 'observacion', 'num_autorizacion'];
 
+/* ==========================================================================
+   FILTRO DE IMPORTACIÓN · qué filas del archivo NO se suben
+   ==========================================================================
+   En Egresos, la columna INFO_EGREGO (en algunos reportes INFO_EGRESO) dice en qué
+   punto está el egreso:
+     · ESTANCIA  -> el paciente sigue hospitalizado. NO se sube: todavía está
+                    abierto y volverá a venir en el próximo reporte.
+     · SALIDA    -> ya salió. Sí.
+     · FACTURADO -> ya salió y está facturado. Sí.
+   Se suben SALIDA y FACTURADO; ESTANCIA no. Se comprueba sin distinguir mayúsculas
+   ni tildes, y acepta sinónimos por si el reporte cambia de nombre.
+   Para cambiarlo, basta con tocar esta tabla. */
+const FILTROS_IMPORTACION = {
+  eg: {
+    campo:'egreso',
+    acepta:['SALIDA','FACTURADO','FACTURADA','EGRESADO','ALTA'],
+    etiqueta:'SALIDA o FACTURADO',
+    motivo:'sigue en ESTANCIA'
+  }
+};
+function normFiltro(v){ return norm(String(v == null ? '' : v)); }
+/* ¿Esta fila del archivo pasa el filtro de subida? Si el panel no tiene filtro,
+   pasa siempre. */
+function pasaFiltroImportacion(key, rec){
+  const f = FILTROS_IMPORTACION[key];
+  if(!f) return true;
+  return f.acepta.map(normFiltro).indexOf(normFiltro(rec[f.campo])) >= 0;
+}
+/* Cuenta, SIN importar todavía, cuántas filas del archivo se subirían y por qué se
+   descartan las demás. Es lo que se le muestra al usuario antes de confirmar. */
+function resumenFiltroImportacion(key){
+  const f = FILTROS_IMPORTACION[key], imp = state.imp;
+  if(!f || !imp || !imp.aoa.length) return null;
+  const ix = Object.keys(imp.map).find(i => imp.map[i] === f.campo);
+  if(ix === undefined) return { campo:f.campo, etiqueta:f.etiqueta, sinColumna:true };
+  const filas = imp.aoa.slice(imp.headerRow + 1);
+  let pasan = 0;
+  const otros = {};
+  filas.forEach(r => {
+    const v = String(r[+ix] == null ? '' : r[+ix]).trim();
+    const rec = {}; rec[f.campo] = v;
+    if(pasaFiltroImportacion(key, rec)) pasan++;
+    else { const k = v || '(vacío)'; otros[k] = (otros[k] || 0) + 1; }
+  });
+  return { campo:f.campo, etiqueta:f.etiqueta, total:filas.length, pasan:pasan,
+           seQuedan:filas.length - pasan, otros:otros, sinColumna:false,
+           detalle:Object.keys(otros).map(k => k + ': ' + otros[k]).slice(0, 3).join(' · ') };
+}
+
 /* Valores del Excel que SI pueden aplicarse sobre un registro que YA existe.
    Deja fuera:
      - los campos manuales (se conserva lo que hay en el programa)
@@ -1952,7 +2006,7 @@ function renderPreview(){
   const cols = imp.headers.filter(h => imp.map[h.i]);
   const rows = imp.aoa.slice(imp.headerRow + 1, imp.headerRow + 6);
   if(!cols.length){ $('#imp-preview').innerHTML = '<div class="empty">Asigna al menos un encabezado para ver la vista previa.</div>'; return; }
-  $('#imp-preview').innerHTML = '<table><thead><tr>' + cols.map(h =>
+  $('#imp-preview').innerHTML = avisoFiltroImportacion() + '<table><thead><tr>' + cols.map(h =>
       '<th>' + esc((s.fields.find(f => f.k === imp.map[h.i]) || {}).label || h.text) + '</th>').join('') + '</tr></thead><tbody>' +
     rows.map((r, i) => '<tr' + (i % 2 ? ' class="par"' : '') + '>' + cols.map(h => {
       let v = r[h.i]; if(v instanceof Date) v = isoFromDate(v);
@@ -1962,7 +2016,35 @@ function renderPreview(){
 function updateImportBtn(){
   const imp = state.imp;
   const mapped = Object.keys(imp.map).filter(i => imp.map[i]);
-  $('#imp-confirm').disabled = !mapped.length;
+  if(!mapped.length){ $('#imp-confirm').disabled = true; return; }
+  /* En los paneles con filtro de subida (Egresos) no se deja importar si la columna
+     que decide el filtro no está asignada: no entraría ni una fila y parecería que
+     el archivo está mal. */
+  const rf = resumenFiltroImportacion(imp.key);
+  $('#imp-confirm').disabled = !!(rf && rf.sinColumna);
+}
+
+/* Aviso que se ve ANTES de confirmar: cuántas filas del archivo se van a subir. */
+function avisoFiltroImportacion(){
+  const imp = state.imp, s = SCHEMAS[imp.key];
+  const rf = resumenFiltroImportacion(imp.key);
+  if(!rf) return '';
+  const campoLabel = (s.fields.find(f => f.k === rf.campo) || {}).label || rf.campo;
+  if(rf.sinColumna){
+    return '<div class="imp-filtro malo"><b>Falta asignar «' + esc(campoLabel) + '».</b> ' +
+      'En Egresos solo se suben las filas que digan <b>' + esc(rf.etiqueta) + '</b>, ' +
+      'y esa columna del reporte está sin asignar. Así no entraría ninguna fila.</div>';
+  }
+  if(!rf.pasan){
+    return '<div class="imp-filtro malo"><b>Ninguna fila entraría.</b> De las ' + rf.total +
+      ' filas del archivo, ninguna dice <b>' + esc(rf.etiqueta) + '</b>' +
+      (rf.detalle ? ' (se encontró ' + esc(rf.detalle) + ')' : '') +
+      '. Revisa la columna «' + esc(campoLabel) + '».</div>';
+  }
+  return '<div class="imp-filtro"><b>Se subirán ' + rf.pasan + ' de ' + rf.total + ' filas.</b> ' +
+    'Solo entran las que digan <b>' + esc(rf.etiqueta) + '</b> en «' + esc(campoLabel) + '».' +
+    (rf.seQuedan ? ' Se quedarán fuera <b>' + rf.seQuedan + '</b>' +
+       (rf.detalle ? ' (' + esc(rf.detalle) + ')' : '') + '.' : '') + '</div>';
 }
 async function runImport(){
   const imp = state.imp, key = imp.key, s = SCHEMAS[key];
@@ -1970,7 +2052,8 @@ async function runImport(){
   Object.keys(imp.map).forEach(i => { if(imp.map[i]) idx[imp.map[i]] = +i; });
   const mapped = Object.keys(idx);
   if(!mapped.length) return;
-  let nuevos = 0, act = 0, vacios = 0, sinCambios = 0;
+  let nuevos = 0, act = 0, vacios = 0, sinCambios = 0, filtrados = 0;
+  const razonesFiltro = {};
   const byDup = {};
   /* los meses que trae el archivo, para saltar solos a ese mes al terminar */
   const mesesArchivo = {};
@@ -1991,6 +2074,14 @@ async function runImport(){
       rec[fk] = v;
     });
     if(!any){ vacios++; return; }
+    /* --- filtro de subida: en Egresos solo entran SALIDA y FACTURADO --- */
+    if(!pasaFiltroImportacion(key, rec)){
+      filtrados++;
+      const pf = FILTROS_IMPORTACION[key];
+      const etq = String(rec[pf.campo] || '').trim() || '(vacío)';
+      razonesFiltro[etq] = (razonesFiltro[etq] || 0) + 1;
+      return;
+    }
     /* se anota de qué mes es la fila (para saltar solos a ese mes al terminar) */
     if(rec.fecha){ const cm = claveMes(rec.fecha); if(cm) mesesArchivo[cm] = 1; }
     const d = dupKey(key, rec);
@@ -2026,6 +2117,15 @@ async function runImport(){
   toast('Importación en <b>' + esc(s.short) + '</b>: ' + nuevos + ' nuevos, ' + act + ' actualizados' +
         (sinCambios ? ', ' + sinCambios + ' sin cambios (se respetó lo editado a mano)' : '') +
         (vacios ? ', ' + vacios + ' fila(s) vacía(s) omitida(s)' : '') + '.', 'ok');
+  /* Si se descartaron filas por el filtro, se dice cuántas y por qué, para que nadie
+     piense que el archivo se perdió por el camino. */
+  if(filtrados){
+    const f = FILTROS_IMPORTACION[key];
+    const detalle = Object.keys(razonesFiltro)
+      .map(k => esc(k) + ': ' + razonesFiltro[k]).slice(0, 3).join(' · ');
+    toast('<b>' + filtrados + '</b> fila(s) NO se subieron: solo entran las que digan ' +
+          esc(f.etiqueta) + ' (' + detalle + '). Se quedarán para el próximo reporte.', 'warn');
+  }
   if(sb.on() && toPush.length){
     try{
       await sb.upsert(s.table, toPush);
