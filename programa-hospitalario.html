@@ -583,6 +583,9 @@ label.lab .req{color:var(--pink-deep)}
 .imp-filtro{margin:0 0 10px; padding:9px 12px; border-radius:10px; font-size:12.5px; line-height:1.45;
   background:#eef6fd; border:1px solid #cfe2f4; color:#1b5286}
 .imp-filtro.malo{background:#fdeaef; border-color:#f6c9d5; color:#9b1c38}
+/* El SQL de arreglo que sale en Configuración, para copiarlo tal cual. */
+.cfg-sql-mini{margin:6px 0 0; padding:8px 10px; background:#0f2233; color:#e8f2fb; border-radius:8px;
+  font-size:11.5px; line-height:1.5; white-space:pre-wrap; overflow-wrap:anywhere; max-height:190px; overflow:auto}
 .err{color:var(--danger); font-size:12px; font-weight:700; margin-top:5px; overflow-wrap:break-word}
 input.bad,select.bad,textarea.bad{border-color:#e08585; box-shadow:0 0 0 4px rgba(224,133,133,.16)}
 
@@ -1067,6 +1070,7 @@ button.link:hover{color:#01407e}
       <h2 class="card-title"><span class="badge-item">⚙</span> CONFIGURACIÓN</h2>
       <p class="card-sub">Proyecto conectado: <b id="cfg-proyecto">—</b>. Pega aquí la URL y la anon key del proyecto que quieras usar (por ejemplo, <b>Consolidado de Estancias</b>). Los datos se guardan siempre en el navegador (respaldo local) y se sincronizan con ese proyecto.</p>
       <p class="hint" id="cfg-note" style="margin:-4px 0 12px">Comprobando tablas…</p>
+      <div class="hint" id="cfg-nota-detalle" style="margin:-4px 0 12px"></div>
       <p class="hint" id="cfg-almacen" style="margin:-4px 0 12px">Leyendo el almacén…</p>
       <div class="kv">
         <div>
@@ -1554,6 +1558,11 @@ const KEYS = ['tq','no','eg'];
 /* De qué panel es una tabla, leyéndolo de su id (table-tq / table-no / table-eg).
    Antes esto era `table.id === 'table-tq' ? 'tq' : 'no'` repartido por el código: con
    un tercer panel, cualquier cosa de Egresos habría acabado guardándose en Notas. */
+/* El tipo de columna que le toca a cada campo en Supabase. OJO: la FECHA DE SALIDA de
+   Egresos guarda fecha Y HORA, así que su columna tiene que ser timestamptz; si fuera
+   date, Supabase rechazaría el guardado ('invalid input syntax for type date') y
+   Egresos no sincronizaría nunca. */
+function tipoSQL(f){ return f.type === 'datetime' ? 'timestamptz' : (f.type === 'date' ? 'date' : 'text'); }
 function keyDeTabla(table){
   if(!table) return 'tq';
   const k = String(table.id || '').replace(/^table-/, '');
@@ -1861,6 +1870,30 @@ function schemaDeTabla(table){
   const k = Object.keys(SCHEMAS).find(x => SCHEMAS[x].table === table);
   return k ? SCHEMAS[k] : null;
 }
+/* ==========================================================================
+   ADOPTAR LO QUE DEVUELVE EL SERVIDOR — sin borrar lo de aquí
+   ==========================================================================
+   Después de guardar, el programa relee la fila del servidor y la copia encima del
+   registro local. Copiarla TAL CUAL es peligroso: si el servidor devuelve un campo
+   vacío (porque allí esa columna no existe, porque el guardado quedó a medias, o
+   porque la fila es anterior), ese hueco se lleva por delante lo que el usuario acaba
+   de escribir. ES lo que pasaba al poner un ESTADO en Egresos: la píldora volvía a
+   «Sin estado» y el AUTORIZADOR se quedaba en blanco, mientras que en Turnos y Notas
+   no se notaba.
+   Regla: un valor VACÍO del servidor no pisa un valor de local. Un valor con contenido
+   sí (es lo que permite recibir cambios hechos desde otro equipo).
+   ========================================================================== */
+function adoptarDelServidor(loc, rr){
+  if(!loc || !rr) return;
+  Object.keys(rr).forEach(c => {
+    const v = rr[c];
+    if(v === null || v === undefined) return;       /* el hueco no borra */
+    if(c === 'updated_at' && String(v) < String(loc.updated_at || '')) return;
+    loc[c] = v;
+  });
+  loc._sync = 'synced';
+}
+
 function cleanForServer(table, r){
   r = r || {};
   const s = schemaDeTabla(table);
@@ -4083,10 +4116,6 @@ function setStatus(){
   $('#chip-status').title = on ? ('Supabase: ' + state.cfg.url) : 'Los datos se guardan en este navegador';
 }
 function sqlScript(){
-  /* El tipo de cada columna. OJO: la FECHA DE SALIDA de Egresos guarda fecha Y HORA,
-     así que su columna tiene que ser timestamptz; si fuera date, Supabase rechazaría
-     el guardado ('invalid input syntax for type date') y Egresos nunca sincronizaría. */
-  const tipoSQL = f => f.type === 'datetime' ? 'timestamptz' : (f.type === 'date' ? 'date' : 'text');
   const one = (table, fields) =>
     'create table if not exists public.' + table + ' (\n' +
     '  id text primary key,\n' +
@@ -4162,6 +4191,64 @@ async function testConn(silent){
   toast('Conexión correcta, pero ' + (faltan.length > 1 ? 'faltan crear las tablas ' : 'falta crear la tabla ') +
         esc(faltan.concat(otros).join(', ')) + '. Abre “Ver SQL de las tablas” y ejecútalo en Supabase.', 'warn');
 }
+/* ==========================================================================
+   REVISIÓN DE LAS TABLAS DE SUPABASE
+   ==========================================================================
+   Mira qué tienen de verdad las tablas del proyecto y lo compara con lo que el
+   programa envía. Detecta las dos cosas que rompen el guardado:
+     · que falte alguna columna;
+     · que alguna tenga el tipo equivocado. El caso que nos pasó: la FECHA DE SALIDA
+       de Egresos guarda fecha CON HORA, así que su columna tiene que ser timestamptz.
+       Con «date», Supabase rechaza el guardado y Egresos no sincroniza nunca.
+   PostgREST publica el esquema de las tablas en /rest/v1/ (el documento OpenAPI). Si
+   eso no responde, se hace una comprobación más simple pidiendo todas las columnas de
+   una vez: así al menos se sabe cuáles faltan.
+   Devuelve, además, el SQL exacto para arreglar lo que encuentre. */
+async function revisarColumnas(){
+  let defs = null;
+  try{
+    const doc = await sb.req('/rest/v1/');
+    defs = (doc && doc.definitions) || null;
+  }catch(e){ defs = null; }
+  const salida = [];
+  for(const k of KEYS){
+    const s = SCHEMAS[k], sinColumna = [], malTipo = [];
+    if(defs && defs[s.table] && defs[s.table].properties){
+      const props = defs[s.table].properties;
+      s.fields.forEach(f => {
+        const p = props[f.k];
+        if(!p){ sinColumna.push(f.k); return; }
+        /* en el documento, «date-time» es una columna que admite hora */
+        if(f.type === 'datetime' && String(p.format || '').toLowerCase() !== 'date-time') malTipo.push(f.k);
+      });
+    } else {
+      try{
+        await sb.req('/rest/v1/' + s.table + '?select=' + s.fields.map(f => f.k).join(',') + '&limit=0');
+      }catch(err){
+        const m = /column "?([A-Za-z_0-9]+)"? does not exist/i.exec(String(err.message || ''));
+        sinColumna.push(m ? m[1] : '(no se pudo comprobar)');
+      }
+    }
+    salida.push({ key:k, short:s.short, tabla:s.table, sinColumna:sinColumna, malTipo:malTipo });
+  }
+  return salida;
+}
+/* El SQL que arregla lo que haya salido en la revisión. */
+function sqlDeLaRevision(problemas){
+  const lineas = [];
+  problemas.forEach(r => {
+    const s = SCHEMAS[r.key];
+    r.sinColumna.filter(c => /^[a-z_0-9]+$/.test(c)).forEach(c => {
+      const f = s.fields.find(x => x.k === c) || null;
+      lineas.push('alter table public.' + s.table + ' add column if not exists ' + c + ' ' +
+                  (f ? tipoSQL(f) : 'text') + ';');
+    });
+    r.malTipo.forEach(c => {
+      lineas.push('alter table public.' + s.table + ' alter column ' + c + ' type timestamptz using ' + c + '::timestamptz;');
+    });
+  });
+  return lineas.join('\n');
+}
 async function checkTables(){
   const note = $('#cfg-note'); if(!note) return;
   if(!sb.on()){
@@ -4178,8 +4265,24 @@ async function checkTables(){
       ' en el proyecto.</b> Abre “Ver SQL de las tablas”, cópialo y ejecútalo en Supabase → SQL Editor. ' +
       'Mientras tanto todo se guarda en este navegador y se subirá solo en cuanto la tabla exista.';
     toast('Faltan ' + faltan.join(' y ') + ' en Supabase: ejecuta el SQL (Configuración → Ver SQL de las tablas).','warn');
+    return;
+  }
+  /* Las tablas están. Ahora, las columnas: */
+  let rev = [];
+  try{ rev = await revisarColumnas(); }catch(e){}
+  const problemas = rev.filter(r => r.sinColumna.length || r.malTipo.length);
+  if(problemas.length){
+    const detalle = problemas.map(r => '<b>' + esc(r.short) + '</b>: ' +
+      (r.sinColumna.length ? 'falta(n) ' + esc(r.sinColumna.join(', ')) : '') +
+      (r.malTipo.length ? (r.sinColumna.length ? ' y ' : '') + esc(r.malTipo.join(', ')) +
+         ' sin hora (debe ser <b>timestamptz</b>)' : '')).join('<br>');
+    const arreglo = sqlDeLaRevision(problemas);
+    note.innerHTML = 'Las tablas están, pero hay columnas que no cuadran:<br>' + detalle +
+      (arreglo ? '<br>Ejecuta esto una vez en Supabase → SQL Editor:<pre class="cfg-sql-mini">' + esc(arreglo) + '</pre>' : '');
+    toast('Hay columnas que no cuadran en Supabase: mira Configuración.','warn');
   } else {
-    note.innerHTML = 'Tablas <b>TQ</b> y <b>N.O.</b> disponibles en el proyecto configurado.';
+    note.innerHTML = 'Tablas <b>' + KEYS.map(k => esc(SCHEMAS[k].short)).join('</b>, <b>') +
+      '</b> disponibles, con sus columnas y sus tipos correctos.';
   }
 }
 /* ==========================================================================
@@ -4199,7 +4302,7 @@ async function confirmarRegistro(key, id){
     const rr  = Array.isArray(rows) ? rows[0] : null;
     const loc = rr ? state.data[key].find(r => r.id === id) : null;
     if(!loc) return false;
-    Object.assign(loc, rr, {_sync: 'synced'});
+    adoptarDelServidor(loc, rr);
     saveData(key); renderStats(key); renderBody(key); setStatus();
     /* si ese turno está abierto en el formulario, el historial se repinta solo */
     if(formAbiertoCon(id)) pintarHistorial(loc);
@@ -4216,7 +4319,7 @@ async function confirmarVarios(key, ids){
     (Array.isArray(rows) ? rows : []).forEach(rr => {
       const loc = state.data[key].find(r => r.id === rr.id);
       if(loc){
-        Object.assign(loc, rr, {_sync: 'synced'}); n++;
+        adoptarDelServidor(loc, rr); n++;
         if(formAbiertoCon(loc.id)) abierto = loc;
       }
     });
@@ -4266,7 +4369,7 @@ async function syncAll(silent){
         const cambioDespuesDelCorte = !!desde;
         if(!loc){ state.data[k].push(Object.assign({_sync:'synced'}, rr)); pulled++; toco = true; }
         else if(!isPending(loc) && (cambioDespuesDelCorte ||
-                String(rr.updated_at || '') > String(loc.updated_at || ''))){ Object.assign(loc, rr, {_sync:'synced'}); pulled++; toco = true; }
+                String(rr.updated_at || '') > String(loc.updated_at || ''))){ adoptarDelServidor(loc, rr); pulled++; toco = true; }
         /* se anota hasta dónde se ha traído (las fechas del servidor siempre
            vienen en el mismo formato, así que compararlas entre ellas es fiable) */
         const u = String(rr.updated_at || '');
