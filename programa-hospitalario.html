@@ -36,10 +36,13 @@
   --grad-soft:linear-gradient(135deg,#e1f1fd,#d3e4f1);
   /* margen lateral del contenido: se adapta al ancho de la pantalla */
   --pad:clamp(16px, 2.4vw, 44px);
-  /* ====== TAMAÑO DE LETRA DE LA TABLA DE DATOS (TQ y N.O.) ======
+  /* ====== TAMAÑO DE LETRA DE LA TABLA DE DATOS (TQ, N.O. y E.G.) ======
      Un solo número manda: registros, encabezado, etiquetas y el desplegable
-     de AUTORIZADOR. Antes la tabla crecía con el ancho de la pantalla; ya no. */
-  --fs-tabla:8px;
+     de AUTORIZADOR. Antes la tabla crecía con el ancho de la pantalla; ya no.
+     El 14/10/2026 se subió de 8 a 8,5 a petición del usuario. Vale para los
+     TRES reportes (Turnos, Notas y Egresos) porque los tres leen esta misma
+     variable: no hay que tocar cada panel por separado. */
+  --fs-tabla:8.5px;
   /* ====== ENCABEZADO DE LA TABLA ======
      La fila de títulos va en azul pleno con letra blanca para que se diferencie
      de un vistazo del cuerpo de datos. */
