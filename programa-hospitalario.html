@@ -1433,7 +1433,10 @@ const SCHEMAS = {
       {k:'folio_dgh',       label:'FOLIO DGH',          lines:['FOLIO','DGH'], type:'text',  w:104, dup:true, tight:true},
       {k:'id_paciente',     label:'DOCUMENTO',          type:'text',  w:150, tight:true},
       /* w = ancho de la columna (el texto largo se envuelve y se ve completo) */
-      {k:'eps',             label:'EPS',                type:'text',  w:190, cat:'eps', full:true, absorbe:true},
+      /* La EPS en DOS líneas como mucho (max2) y con ancho mínimo (minw) para que dos
+         líneas basten: son nombres largos («ASOCIACIÓN INDÍGENA DEL CAUCA AIC EPS
+         INDÍGENA») y envueltos libres se estiraban a tres y cuatro líneas. */
+      {k:'eps',             label:'EPS',                type:'text',  w:190, cat:'eps', max2:true, minw:190, absorbe:true},
       {k:'cups',            label:'CUPS',               type:'text',  w:96,  dup:true, cat:'cups', tight:true},
       /* EL PROCEDIMIENTO SALE COMPLETO (full): antes se recortaba a dos líneas con
          puntos suspensivos y el nombre de la cirugía quedaba a medias. minw evita el
@@ -1486,7 +1489,8 @@ const SCHEMAS = {
        /* EL PROCEDIMIENTO SALE COMPLETO (full) y con ancho mínimo: mismo motivo que en Turnos. */
        {k:'cups_descripcion',label:'PROCEDIMIENTO',     type:'textarea', span:true, full:true, minw:200, absorbe:true},
        {k:'cups',           label:'CUPS',               type:'text',  w:96,  dup:true, cat:'cups', tight:true},
-       {k:'eps',            label:'EPS',                type:'text',  w:190, cat:'eps', full:true, absorbe:true},
+       /* La EPS en dos líneas como mucho: mismo criterio que en Turnos. */
+       {k:'eps',            label:'EPS',                type:'text',  w:190, cat:'eps', max2:true, minw:190, absorbe:true},
        {k:'ingreso',        label:'INGRESO',            type:'text',  w:100, tight:true},
        {k:'tipo_ingr',      label:'TIPO INGRESO',       type:'text',  w:130, cat:'tipo_ingr', tight:true},
        {k:'ac_evento',      label:'CIE10',              type:'textarea', span:true, w:360, cat:'cie10', full:true, absorbe:true},
@@ -1536,7 +1540,10 @@ const SCHEMAS = {
        {k:'id_paciente',  label:'DOCUMENTO',       type:'text',  w:150, dup:true, tight:true},
        {k:'paciente',     label:'PACIENTE',        type:'text',  req:true, w:230, max2:true, minw:170, absorbe:true},
        {k:'consecutivo',  label:'CONSECUTIVO',     type:'text',  w:122, dup:true, tight:true},
-       {k:'entidad',      label:'ENTIDAD',         type:'text',  w:230, full:true, absorbe:true},
+       /* ENTIDAD es la EPS en el reporte de Egresos (al subir el archivo, las columnas
+          ENTIDAD, EPS y ASEGURADORA caen aquí). Va en dos líneas como máximo, igual que
+          la EPS en Turnos y Notas. */
+       {k:'entidad',      label:'ENTIDAD',         type:'text',  w:230, max2:true, minw:190, absorbe:true},
        /* dfmt: la fecha se muestra EXACTAMENTE como la trae el reporte ('28/02/25',
           día/mes/año de dos cifras), no como '28/02/2025'. Solo cambia cómo se ve: el
           valor guardado es el mismo, y es el que usa el filtro de mes. */
