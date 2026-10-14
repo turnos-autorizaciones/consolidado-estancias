@@ -1435,8 +1435,14 @@ const SCHEMAS = {
       /* w = ancho de la columna (el texto largo se envuelve y se ve completo) */
       {k:'eps',             label:'EPS',                type:'text',  w:190, cat:'eps', full:true, absorbe:true},
       {k:'cups',            label:'CUPS',               type:'text',  w:96,  dup:true, cat:'cups', tight:true},
-      {k:'cups_descripcion',label:'CUPS_DESCRIPCIÓN',   type:'textarea', span:true, absorbe:true},
-      {k:'paciente',        label:'PACIENTE',           type:'text',  req:true, w:230, full:true, absorbe:true},
+      /* EL PROCEDIMIENTO SALE COMPLETO (full): antes se recortaba a dos líneas con
+         puntos suspensivos y el nombre de la cirugía quedaba a medias. minw evita el
+         otro extremo: en una pantalla apretada la columna se encogía a ~100 px y el
+         procedimiento se estiraba a CINCO líneas de alto. */
+      {k:'cups_descripcion',label:'CUPS_DESCRIPCIÓN',   type:'textarea', span:true, full:true, minw:200, absorbe:true},
+      /* max2 + minw: el nombre del paciente se ve en dos líneas como mucho, y la columna
+         no puede quedar tan estrecha que el nombre se parta en cuatro. */
+      {k:'paciente',        label:'PACIENTE',           type:'text',  req:true, w:230, max2:true, minw:170, absorbe:true},
       {k:'servicio_actual', label:'SERVICIO ACTUAL',    type:'text',  w:185, cat:'servicio', full:true, absorbe:true},
       {k:'cama',            label:'CAMA',               type:'text',  w:88, tight:true},
       {k:'especialidad',    label:'ESPECIALIDAD',       type:'text',  w:180, cat:'especialidad', full:true, absorbe:true},
@@ -1476,8 +1482,9 @@ const SCHEMAS = {
        {k:'fecha',          label:'FECHA',              type:'date',  req:true, w:108, dup:true, tight:true},
        {k:'hora',           label:'HORA 24 H',          type:'text',  w:96,  dup:true, ph:'6:25', tight:true},
        {k:'id_paciente',    label:'DOCUMENTO',          type:'text',  w:150, dup:true, tight:true},
-       {k:'paciente',       label:'PACIENTE',           type:'text',  req:true, w:230, full:true, absorbe:true},
-       {k:'cups_descripcion',label:'PROCEDIMIENTO',     type:'textarea', span:true, absorbe:true},
+       {k:'paciente',       label:'PACIENTE',           type:'text',  req:true, w:230, max2:true, minw:170, absorbe:true},
+       /* EL PROCEDIMIENTO SALE COMPLETO (full) y con ancho mínimo: mismo motivo que en Turnos. */
+       {k:'cups_descripcion',label:'PROCEDIMIENTO',     type:'textarea', span:true, full:true, minw:200, absorbe:true},
        {k:'cups',           label:'CUPS',               type:'text',  w:96,  dup:true, cat:'cups', tight:true},
        {k:'eps',            label:'EPS',                type:'text',  w:190, cat:'eps', full:true, absorbe:true},
        {k:'ingreso',        label:'INGRESO',            type:'text',  w:100, tight:true},
@@ -1527,7 +1534,7 @@ const SCHEMAS = {
      fields:[
        {k:'egreso',       label:'EGRESO',          type:'text',  w:104, tight:true},
        {k:'id_paciente',  label:'DOCUMENTO',       type:'text',  w:150, dup:true, tight:true},
-       {k:'paciente',     label:'PACIENTE',        type:'text',  req:true, w:230, full:true, absorbe:true},
+       {k:'paciente',     label:'PACIENTE',        type:'text',  req:true, w:230, max2:true, minw:170, absorbe:true},
        {k:'consecutivo',  label:'CONSECUTIVO',     type:'text',  w:122, dup:true, tight:true},
        {k:'entidad',      label:'ENTIDAD',         type:'text',  w:230, full:true, absorbe:true},
        /* dfmt: la fecha se muestra EXACTAMENTE como la trae el reporte ('28/02/25',
@@ -3035,6 +3042,14 @@ function cellHtml(f, v){
   if(!raw.trim()) return '<span style="color:#8aa6c0">—</span>';
   const tip = esc(raw.replace(/\s+/g, ' ').trim());
   /* campos marcados como completos (CIE10, AC_EVENTO): se ven íntegros, sin recortar */
+  /* max2: el texto se ve en DOS líneas como mucho. Es el caso del NOMBRE DEL PACIENTE:
+     envuelto libremente, en una columna apretada se partía en tres y cuatro líneas y la
+     fila crecía de más. Con el tope de dos líneas la fila queda igualada; el ancho mínimo
+     de la columna (minw) se encarga de que dos líneas BASTEN, así que el recorte con
+     puntos suspensivos no llega a verse en un nombre normal. */
+  if(f.max2){
+    return '<span class="clamp2" title="' + tip + '">' + esc(raw).replace(/\n/g, '<br>') + '</span>';
+  }
   if(f.full){
     /* maxw: la celda no crece más de ese ancho, el texto se envuelve y se lee completo */
     const cap = f.maxw ? ' style="max-width:' + f.maxw + 'px"' : '';
@@ -3098,8 +3113,13 @@ function renderHead(key){
     campos(key).map(f => {
       /* 1) tight -> se ajusta al contenido · 2) ancho fijo -> el texto se envuelve dentro
          · 3) sin ancho -> es la columna que absorbe el espacio sobrante (texto largo) */
-      const st = f.tight ? ' class="tight" style="width:1px"'
-               : (f.w ? ' style="width:' + f.w + 'px"' : '');
+      /* minw = ancho MÍNIMO de la columna. Lo usa el nombre del paciente: aunque la
+         pantalla apriete, la columna no puede encogerse tanto que el nombre se parta en
+         tres o cuatro líneas. */
+      const minw = f.minw ? ';min-width:' + f.minw + 'px' : '';
+      const st = f.tight ? ' class="tight" style="width:1px' + minw + '"'
+               : (f.w ? ' style="width:' + f.w + 'px' + minw + '"'
+                      : (f.minw ? ' style="min-width:' + f.minw + 'px"' : ''));
       /* f.lines = encabezado en dos líneas (p. ej. FOLIO / DGH) para que la columna quede angosta */
       const titulo = f.lines ? f.lines.map(esc).join('<br>') : esc(f.label);
       return '<th' + st + '>' + titulo + '</th>';
@@ -3338,8 +3358,11 @@ function htmlFila(key, r, i, grupo){
    si no hacen falta). Así las filas de datos son justo las de en medio y meter o
    sacar filas por los bordes es muy simple. */
 function htmlHueco(colspan, alto){
+  /* CON DECIMALES, sin redondear: el alto del relleno es lo que ocupan las filas que
+     no se pintan, y redondearlo metía hasta 1 px de desfase en la maqueta. Se venía
+     redondeando de cuando las filas medían un número entero de píxeles. */
   return '<tr class="vhueco" aria-hidden="true"><td colspan="' + colspan +
-         '" style="height:' + Math.max(0, Math.round(alto)) + 'px"></td></tr>';
+         '" style="height:' + Math.max(0, +alto.toFixed(2)) + 'px"></td></tr>';
 }
 /* Mete filas del trozo [desde, hasta) por arriba o por abajo de la ventana. */
 function meterFilas(key, tb, v, desde, hasta, donde){
@@ -3403,7 +3426,13 @@ function pintarVentanaFilas(key){
   /* --- se miden las alturas reales de lo que hay pintado --- */
   const trs = tb.querySelectorAll('tr[data-id]');
   for(let k = 0; k < trs.length; k++){
-    const h = trs[k].offsetHeight, idx = ini + k;
+    /* EL ALTO SE TOMA CON DECIMALES (getBoundingClientRect), no con el número entero
+       de offsetHeight. Esto importa desde que la letra del reporte es de 8,5 px: una
+       línea mide 11,05 px, así que una fila de varias líneas mide 50,14 y no 50.
+       Guardando 50 se iba acumulando un error de 0,14 px por fila: a 1.670 filas son
+       unos 230 px, y al final de la lista eso se veía como una franja de dos píxeles
+       que la tabla no llegaba a cubrir. */
+    const h = trs[k].getBoundingClientRect().height, idx = ini + k;
     if(!h || v.alturas[idx] === h) continue;
     if(v.alturas[idx] == null){ v.suma += h; v.cuantas++; }
     else { v.suma += h - v.alturas[idx]; }
@@ -3415,9 +3444,9 @@ function pintarVentanaFilas(key){
   const hijos = tb.children;
   const primero = hijos[0], ultimo = hijos[hijos.length - 1];
   if(primero && primero.classList.contains('vhueco'))
-    primero.firstElementChild.style.height = Math.max(0, Math.round(acc2[ini])) + 'px';
+    primero.firstElementChild.style.height = Math.max(0, +acc2[ini].toFixed(2)) + 'px';
   if(ultimo && ultimo.classList.contains('vhueco'))
-    ultimo.firstElementChild.style.height = Math.max(0, Math.round(acc2[n] - acc2[fin])) + 'px';
+    ultimo.firstElementChild.style.height = Math.max(0, +(acc2[n] - acc2[fin]).toFixed(2)) + 'px';
   /* El ancho de la tabla se calcula con lo que hay dentro, así que podría encogerse
      al desplazarse y mover la barra horizontal. Se fija el mayor ancho visto para
      que no encoja (y se suelta cuando cambian los datos, más arriba). */
