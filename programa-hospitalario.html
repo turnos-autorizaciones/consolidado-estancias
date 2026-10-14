@@ -1433,15 +1433,15 @@ const SCHEMAS = {
       {k:'folio_dgh',       label:'FOLIO DGH',          lines:['FOLIO','DGH'], type:'text',  w:104, dup:true, tight:true},
       {k:'id_paciente',     label:'DOCUMENTO',          type:'text',  w:150, tight:true},
       /* w = ancho de la columna (el texto largo se envuelve y se ve completo) */
-      {k:'eps',             label:'EPS',                type:'text',  w:190, cat:'eps', full:true},
+      {k:'eps',             label:'EPS',                type:'text',  w:190, cat:'eps', full:true, absorbe:true},
       {k:'cups',            label:'CUPS',               type:'text',  w:96,  dup:true, cat:'cups', tight:true},
-      {k:'cups_descripcion',label:'CUPS_DESCRIPCIÓN',   type:'textarea', span:true},
-      {k:'paciente',        label:'PACIENTE',           type:'text',  req:true, w:230, full:true},
-      {k:'servicio_actual', label:'SERVICIO ACTUAL',    type:'text',  w:185, cat:'servicio', full:true},
+      {k:'cups_descripcion',label:'CUPS_DESCRIPCIÓN',   type:'textarea', span:true, absorbe:true},
+      {k:'paciente',        label:'PACIENTE',           type:'text',  req:true, w:230, full:true, absorbe:true},
+      {k:'servicio_actual', label:'SERVICIO ACTUAL',    type:'text',  w:185, cat:'servicio', full:true, absorbe:true},
       {k:'cama',            label:'CAMA',               type:'text',  w:88, tight:true},
-      {k:'especialidad',    label:'ESPECIALIDAD',       type:'text',  w:180, cat:'especialidad', full:true},
+      {k:'especialidad',    label:'ESPECIALIDAD',       type:'text',  w:180, cat:'especialidad', full:true, absorbe:true},
       {k:'prioridad',       label:'PRIORIDAD',          type:'select', w:118, cat:'prioridad', tight:true},
-      {k:'cie10',           label:'CIE10',              type:'text',  w:360, cat:'cie10', full:true},
+      {k:'cie10',           label:'CIE10',              type:'text',  w:360, cat:'cie10', full:true, absorbe:true},
       {k:'autorizador',     label:'AUTORIZADOR',        type:'select', w:168, cat:'autorizador', tight:true},
       {k:'estado',          label:'ESTADO',             type:'select', w:158, cat:'estado', tight:true},
       {k:'observacion',     label:'OBSERVACIÓN',        type:'textarea', span:true, w:220, tight:true},
@@ -1476,13 +1476,13 @@ const SCHEMAS = {
        {k:'fecha',          label:'FECHA',              type:'date',  req:true, w:108, dup:true, tight:true},
        {k:'hora',           label:'HORA 24 H',          type:'text',  w:96,  dup:true, ph:'6:25', tight:true},
        {k:'id_paciente',    label:'DOCUMENTO',          type:'text',  w:150, dup:true, tight:true},
-       {k:'paciente',       label:'PACIENTE',           type:'text',  req:true, w:230, full:true},
-       {k:'cups_descripcion',label:'PROCEDIMIENTO',     type:'textarea', span:true},
+       {k:'paciente',       label:'PACIENTE',           type:'text',  req:true, w:230, full:true, absorbe:true},
+       {k:'cups_descripcion',label:'PROCEDIMIENTO',     type:'textarea', span:true, absorbe:true},
        {k:'cups',           label:'CUPS',               type:'text',  w:96,  dup:true, cat:'cups', tight:true},
-       {k:'eps',            label:'EPS',                type:'text',  w:190, cat:'eps', full:true},
+       {k:'eps',            label:'EPS',                type:'text',  w:190, cat:'eps', full:true, absorbe:true},
        {k:'ingreso',        label:'INGRESO',            type:'text',  w:100, tight:true},
        {k:'tipo_ingr',      label:'TIPO INGRESO',       type:'text',  w:130, cat:'tipo_ingr', tight:true},
-       {k:'ac_evento',      label:'CIE10',              type:'textarea', span:true, w:360, cat:'cie10', full:true},
+       {k:'ac_evento',      label:'CIE10',              type:'textarea', span:true, w:360, cat:'cie10', full:true, absorbe:true},
        /* AUTORIZACIÓN: píldora con menú, igual que el ESTADO de Turnos (mismo modelo
           visual). Se trabaja a mano: la importación nunca la sobrescribe. */
        {k:'autorizacion',   label:'AUTORIZACIÓN',       type:'select', w:150, cat:'autorizacion', tight:true},
@@ -1527,9 +1527,9 @@ const SCHEMAS = {
      fields:[
        {k:'egreso',       label:'EGRESO',          type:'text',  w:104, tight:true},
        {k:'id_paciente',  label:'DOCUMENTO',       type:'text',  w:150, dup:true, tight:true},
-       {k:'paciente',     label:'PACIENTE',        type:'text',  req:true, w:230, full:true},
+       {k:'paciente',     label:'PACIENTE',        type:'text',  req:true, w:230, full:true, absorbe:true},
        {k:'consecutivo',  label:'CONSECUTIVO',     type:'text',  w:122, dup:true, tight:true},
-       {k:'entidad',      label:'ENTIDAD',         type:'text',  w:230, full:true},
+       {k:'entidad',      label:'ENTIDAD',         type:'text',  w:230, full:true, absorbe:true},
        /* dfmt: la fecha se muestra EXACTAMENTE como la trae el reporte ('28/02/25',
           día/mes/año de dos cifras), no como '28/02/2025'. Solo cambia cómo se ve: el
           valor guardado es el mismo, y es el que usa el filtro de mes. */
@@ -1540,12 +1540,12 @@ const SCHEMAS = {
        {k:'dia',          label:'DIA',             type:'text',  w:74,  tight:true},
        {k:'hc15',         label:'HC15',            type:'text',  w:92,  tight:true},
        {k:'hc19',         label:'HC19',            type:'text',  w:78,  tight:true},
-       {k:'hc19_des',     label:'HC 19 DES',       type:'textarea', w:230, full:true},
+       {k:'hc19_des',     label:'HC 19 DES',       type:'textarea', w:230, full:true, absorbe:true},
        /* FECHA DE SALIDA: el reporte la trae con HORA (la celda de Excel tiene formato
           'm/d/yy h:mm'), así que se guarda entera y se muestra '28/02/25 13:33'. De ahí
           que sea de tipo datetime y no date. */
        {k:'salida',       label:'FECHA DE SALIDA', lines:['FECHA DE','SALIDA'], type:'datetime', dfmt:'dd/mm/aa', w:158, tight:true},
-       {k:'area_egreso',  label:'ÁREA DE EGRESO',  type:'textarea', w:240, full:true},
+       {k:'area_egreso',  label:'ÁREA DE EGRESO',  type:'textarea', w:240, full:true, absorbe:true},
        /* ESTADO: la misma píldora con menú de Turnos y Notas, pero con las opciones
           de Egresos (COMPLETO · PENDIENTE · GESTIONADO · EGRESO INCOMPLETO). Se
           trabaja a mano: la importación nunca la sobrescribe. */
@@ -3110,6 +3110,151 @@ function renderHead(key){
 const ICON_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
 const ICON_DEL  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>';
 /* ==========================================================================
+   ANCHO DE LAS COLUMNAS · que el reporte llene la pantalla sin huecos
+   ==========================================================================
+   EL PROBLEMA (comprobado el 14/10/2026 en un monitor grande): la tabla mide el
+   100% del cuadro y el navegador reparte el ancho que sobra entre las columnas.
+   Solo las columnas de texto largo aprovechan ese ancho; las cortas (FECHA, CAMA,
+   PRIORIDAD, ESTADO…) se quedan con la letra a la izquierda y un hueco a la
+   derecha, que es justo el «espacio entre una columna y otra» que se veía.
+
+   Y no pasaba igual en los tres reportes:
+     · TURNOS y NOTAS tienen UNA columna sin ancho (CUPS_DESCRIPCIÓN /
+       PROCEDIMIENTO) que se tragaba TODO el sobrante: en una pantalla de 3.400 px
+       esa columna llegaba a medir 770 px de puro vacío.
+     · EGRESOS no tiene ninguna, así que el sobrante se repartía entre las 19
+       columnas y salían huecos por todas partes.
+
+   EL ARREGLO: se mide el ancho NATURAL de cada columna y el sobrante se reparte
+   solo entre las de texto largo (las marcadas con absorbe:true en el esquema), en
+   proporción a su tamaño; las cortas se quedan clavadas en su medida. Detalle
+   importante: a las columnas que absorben se les quita el tope de ancho que traían
+   sus textos (.clamp / .clamp2), porque si no el hueco volvería a aparecer dentro
+   de la propia columna.
+
+   CUÁNDO SE RECALCULA: al pintar los registros, al cambiar de panel, al
+   redimensionar la ventana y cuando terminan de cargar las fuentes. Esto último no
+   es un detalle: la letra Quicksand llega de internet, y si se mide antes de que
+   llegue, se mide con otra letra y los anchos salen mal.
+   ========================================================================== */
+function hojaAnchos(key){
+  let h = document.getElementById('anchos-' + key);
+  if(!h){
+    h = document.createElement('style');
+    h.id = 'anchos-' + key;
+    document.head.appendChild(h);
+  }
+  return h;
+}
+/* Las columnas que se reparten el sobrante, por su posición REAL en la tabla.
+   Delante van la columna de casillas (si el panel las tiene) y la de N°, y detrás
+   va ACCIONES, así que hay que contarlas para no irse una columna de sitio. */
+function columnasQueAbsorben(key){
+  const s = SCHEMAS[key], pos = [];
+  /* OJO con el desfase, que ya se me fue una vez: lo que devuelve esta función son
+     posiciones BASE 0 (índices del array de columnas), no números de columna. Delante
+     de los campos van la columna de casillas (si el panel las tiene) y la de N°, así
+     que el primer campo está en el índice casillas+1. Cuando se usa el resultado se
+     suma 1 para escribir el nth-child, que sí cuenta desde 1. */
+  let i = (s.conCasillas ? 1 : 0) + 1;
+  s.fields.forEach(f => {
+    if(f.oculto) return;
+    if(f.absorbe) pos.push(i);
+    i++;
+  });
+  return pos;
+}
+function panelVisible(){
+  const s = document.querySelector('section.panel.visible');
+  if(!s) return null;
+  const k = String(s.id || '').replace('panel-', '');
+  return KEYS.indexOf(k) >= 0 ? k : null;
+}
+/* Mide y reparte. Devuelve true si dejó puestos unos anchos calculados. */
+function ajustarAnchos(key){
+  const tabla = $('#table-' + key), caja = cajaDe(key);
+  if(!tabla || !caja) return false;
+  const hoja = hojaAnchos(key), v = ventanaDe(key);
+  /* 1) se suelta lo que se puso antes y el tope de ancho, para medir el NATURAL */
+  hoja.textContent = '';
+  tabla.style.minWidth = '';
+  if(!caja.clientWidth || !tabla.offsetWidth) return false;   /* panel oculto: no se puede medir */
+  /* El ancho natural (el que sale con la tabla al 100%) NO sirve para medir: en Turnos
+     y en Notas hay una columna sin ancho (CUPS_DESCRIPCIÓN / PROCEDIMIENTO) que se traga
+     todo el sobrante, así que midiendo así el sobrante sale 0 y no habría nada que
+     repartir. Se mide con el ancho PREFERIDO de cada columna (width:max-content): ahí
+     cada columna mide lo que de verdad necesita su contenido. */
+  tabla.style.width = 'max-content';
+  const ths = Array.from(tabla.querySelectorAll('thead th'));
+  if(ths.length < 2){ tabla.style.width = ''; return false; }
+  const natural = ths.map(th => th.getBoundingClientRect().width);
+  tabla.style.width = '';                 /* se devuelve la tabla a su ancho normal */
+  const total = natural.reduce((a, b) => a + b, 0);
+  if(!total) return false;
+  const disp = caja.clientWidth;
+  const sobra = disp - total;
+  /* Sin sobrante (pantalla estrecha) no hay nada que repartir: se deja como estaba,
+     con su barra horizontal, que es lo correcto. Se vuelve a poner el tope de ancho
+     para que la tabla no encoja al desplazarse. */
+  if(sobra < 8){
+    /* El ancho que el navegador ya había resuelto (aprieta el texto si hace falta) y
+       no el natural: si no cabe, no debe salir una barra horizontal por un poco. */
+    const w = tabla.offsetWidth;
+    v.ancho = w;
+    tabla.style.minWidth = w + 'px';
+    v.anchosPuestos = '';
+    return false;
+  }
+  const destinos = columnasQueAbsorben(key);
+  const base = destinos.reduce((a, i) => a + natural[i], 0);
+  if(!destinos.length || !base) return false;
+  /* 2) el sobrante va a las columnas de texto, en proporción a su tamaño. Se dejan
+        2 px sin repartir: si se reparte hasta el último píxel, el navegador saca
+        una barra horizontal por una fracción de píxel. */
+  const sobraUtil = sobra - 2;
+  const nuevo = natural.slice();
+  destinos.forEach(i => { nuevo[i] = natural[i] + sobraUtil * (natural[i] / base); });
+  /* el redondeo no puede dejar píxeles sin colocar: se cuadra en la más ancha */
+  const masAncha = destinos.reduce((a, i) => (nuevo[i] > nuevo[a] ? i : a), destinos[0]);
+  nuevo[masAncha] += (total + sobraUtil) - nuevo.reduce((a, b) => a + b, 0);
+  /* 3) se fija el ancho de TODAS (las cortas en su medida natural) para que al
+        navegador no le quede nada que repartir. Va con !important porque los
+        encabezados llevan su ancho en el propio estilo y las cortas usan width:1px. */
+  const id = tabla.id;
+  const reglas = nuevo.map((w, i) => {
+    const n = i + 1;
+    return '#' + id + '>thead>tr>th:nth-child(' + n + '){width:' + w.toFixed(1) + 'px!important}' +
+           '#' + id + '>tbody>tr[data-id]>td:nth-child(' + n + '){width:' + w.toFixed(1) + 'px!important}';
+  }).join('');
+  const anchos = reglas + destinos.map(i => '#' + id + '>tbody>tr[data-id]>td:nth-child(' + (i + 1) + ')>span{max-width:none}').join('');
+  const cambio = anchos !== v.anchosPuestos;
+  v.anchosPuestos = anchos;
+  hoja.textContent = anchos;
+  v.ancho = Math.ceil(total + sobraUtil);
+  tabla.style.minWidth = v.ancho + 'px';
+  return cambio;
+}
+/* Cambiar los anchos cambia el ALTO de las filas (el texto envuelve de otra manera),
+   así que las alturas ya medidas no valen y hay que volver a medirlas. Solo se hace
+   cuando los anchos han cambiado de verdad, para no repintar por gusto. */
+function ajustarAnchosYRemedir(key){
+  if(!ajustarAnchos(key)) return;
+  const v = ventanaDe(key);
+  v.alturas = []; v.suma = 0; v.cuantas = 0; v.estimada = ALTO_ESTIMADO;
+  v.forzar = true;
+  pintarVentanaFilas(key);
+}
+/* Al redimensionar se agrupa: sin esto se recalcularía en cada píxel del arrastre. */
+let _tAnchos = 0;
+function programarAjusteAnchos(){
+  clearTimeout(_tAnchos);
+  _tAnchos = setTimeout(() => {
+    const k = panelVisible();
+    if(k) ajustarAnchosYRemedir(k);
+  }, 90);
+}
+
+/* ==========================================================================
    VENTANA DE FILAS
    ==========================================================================
    Un mes trae 1.670 registros en Turnos y 2.081 en Notas. Construir todas las filas
@@ -3403,6 +3548,10 @@ function renderBody(key){
     '<span class="hint">Las filas con barra amarilla aún no están sincronizadas con Supabase.</span>';
   updateLote(key);
   programarHBars();          /* la barra pegada abajo se ajusta al ancho real */
+  /* Reparte el ancho sobrante entre las columnas de texto. Va AQUÍ, al final, y no
+     en renderHead: para medir el ancho natural de una columna el navegador necesita
+     ver las filas de esa columna, no solo el encabezado. */
+  ajustarAnchosYRemedir(key);
 }
 
 /* ==========================================================================
@@ -4790,6 +4939,9 @@ function openPanel(p){
   $$('nav.tabs button').forEach(b => b.classList.toggle('active', b.dataset.panel === p));
   $$('section.panel').forEach(s => s.classList.toggle('visible', s.id === 'panel-' + p));
   window.scrollTo({top:0, behavior:'smooth'});
+  /* El panel que se acaba de mostrar puede necesitar reparto de anchos: hasta ahora
+     estaba oculto, y un elemento oculto mide 0, así que no se podía medir. */
+  if(KEYS.indexOf(p) >= 0) ajustarAnchosYRemedir(p);
 }
 /* ====== BARRA HORIZONTAL PEGADA AL BORDE DE ABAJO ======
    La tabla es más ancha que la pantalla y su barra propia vive al final del
@@ -4878,6 +5030,15 @@ function initHBars(){
   });
   window.addEventListener('scroll', programarHBars, { passive: true });
   window.addEventListener('resize', programarHBars);
+/* Al cambiar el tamaño de la ventana hay que repartir otra vez: los anchos que se
+   calcularon valían para el ancho de antes, y con el nuevo pueden sobrar o faltar. */
+window.addEventListener('resize', programarAjusteAnchos);
+window.addEventListener('orientationchange', programarAjusteAnchos);
+/* La letra del programa (Quicksand) llega de internet. Si se mide antes de que
+   llegue, se mide con otra letra y los anchos salen mal; así que cuando termina de
+   cargar se vuelve a repartir. */
+if(document.fonts && document.fonts.ready)
+  document.fonts.ready.then(() => { const k = panelVisible(); if(k) ajustarAnchosYRemedir(k); });
   programarHBars();
 }
 
